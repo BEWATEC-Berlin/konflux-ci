@@ -92,17 +92,17 @@ var (
 // The CRDs under test/crds/openshift/ are vendored from github.com/openshift/api and
 // must be updated whenever the openshift/api dependency in go.mod is bumped. This
 // requires:
-//   1. A script (e.g. .github/scripts/update-openshift-test-crds.sh) that extracts
-//      the 4 CRDs from the Go module cache:
-//        go list -m -f '{{.Dir}}' github.com/openshift/api
-//      then copies the zz_generated.crd-manifests files to test/crds/openshift/,
-//      updating the source header comments.
-//   2. Add the openshift CRD paths to .github/scripts/verify-manifests-in-sync.sh
-//      so CI detects drift when openshift/api is bumped without updating the CRDs.
-//   3. Add operator/test/crds/openshift/** to
-//      .github/path-filters/verify-manifests-in-sync.txt.
-//   4. Wire MintMaker/Renovate to trigger the update when openshift/api changes
-//      (similar to how renovate-manifest-companion.sh handles cert-manager).
+//  1. A script (e.g. .github/scripts/update-openshift-test-crds.sh) that extracts
+//     the 4 CRDs from the Go module cache:
+//     go list -m -f '{{.Dir}}' github.com/openshift/api
+//     then copies the zz_generated.crd-manifests files to test/crds/openshift/,
+//     updating the source header comments.
+//  2. Add the openshift CRD paths to .github/scripts/verify-manifests-in-sync.sh
+//     so CI detects drift when openshift/api is bumped without updating the CRDs.
+//  3. Add operator/test/crds/openshift/** to
+//     .github/path-filters/verify-manifests-in-sync.txt.
+//  4. Wire MintMaker/Renovate to trigger the update when openshift/api changes
+//     (similar to how renovate-manifest-companion.sh handles cert-manager).
 func SetupTestEnv(basePath string) *TestEnv {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
