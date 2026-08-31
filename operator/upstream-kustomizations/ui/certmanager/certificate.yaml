@@ -1,5 +1,13 @@
 ---
-# CA Certificate: creates a self-signed CA in the konflux-ui namespace.
+# Namespace-scoped bootstrap Issuer used only in locked-down TLS mode.
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: ui-selfsigned-issuer
+spec:
+  selfSigned: {}
+---
+# CA Certificate: creates the CA in the konflux-ui namespace.
 # The resulting Secret (ui-ca) contains the CA cert in tls.crt.
 # This Secret is referenced by the Ingress annotation
 # route.openshift.io/destination-ca-certificate-secret so that the

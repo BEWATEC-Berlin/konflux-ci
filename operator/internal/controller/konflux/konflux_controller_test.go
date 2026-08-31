@@ -19,6 +19,7 @@ package konflux
 import (
 	"context"
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -837,6 +838,70 @@ var _ = Describe("Konflux Controller", func() {
 			err = k8sClient.Get(ctx, imageControllerNamespacedName, ic)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(ic.Spec.QuayCABundle).To(BeNil())
+		})
+	})
+})
+
+var _ = Describe("Konflux TLS issuer propagation", func() {
+	It("propagates namespace-local and existing ClusterIssuer modes to every TLS consumer", func() {
+		falseValue := false
+		trueValue := true
+		owner := &konfluxv1alpha1.Konflux{
+			ObjectMeta: metav1.ObjectMeta{Name: CRName},
+			Spec: konfluxv1alpha1.KonfluxSpec{
+				CertManager: &konfluxv1alpha1.CertManagerConfig{CreateClusterIssuer: &falseValue},
+				InternalRegistry: &konfluxv1alpha1.InternalRegistryConfig{
+					Enabled: &trueValue,
+				},
+			},
+		}
+		Expect(k8sClient.Create(ctx, owner)).To(Succeed())
+		DeferCleanup(func() {
+			Expect(k8sClient.Delete(ctx, owner)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: CRName}, &konfluxv1alpha1.Konflux{})
+				return errors.IsNotFound(err)
+			}, 10*time.Second, 250*time.Millisecond).Should(BeTrue())
+		})
+
+		reconciler := &KonfluxReconciler{
+			Client:      k8sClient,
+			Scheme:      k8sClient.Scheme(),
+			ClusterInfo: createTestClusterInfo(),
+		}
+		reconcileKonflux := func() {
+			_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: CRName}})
+			Expect(err).NotTo(HaveOccurred())
+		}
+		assertTLSIssuer := func(want konfluxv1alpha1.TLSIssuerConfiguration) {
+			ui := &konfluxv1alpha1.KonfluxUI{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "konflux-ui"}, ui)).To(Succeed())
+			Expect(ui.Spec.TLSIssuer).NotTo(BeNil())
+			Expect(*ui.Spec.TLSIssuer).To(Equal(want))
+
+			namespaceLister := &konfluxv1alpha1.KonfluxNamespaceLister{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "konflux-namespace-lister"}, namespaceLister)).To(Succeed())
+			Expect(namespaceLister.Spec.TLSIssuer).NotTo(BeNil())
+			Expect(*namespaceLister.Spec.TLSIssuer).To(Equal(want))
+
+			registry := &konfluxv1alpha1.KonfluxInternalRegistry{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "konflux-internal-registry"}, registry)).To(Succeed())
+			Expect(registry.Spec.TLSIssuer).NotTo(BeNil())
+			Expect(*registry.Spec.TLSIssuer).To(Equal(want))
+		}
+
+		reconcileKonflux()
+		assertTLSIssuer(konfluxv1alpha1.TLSIssuerConfiguration{Mode: konfluxv1alpha1.TLSIssuerModeNamespaceLocal})
+
+		updatedOwner := &konfluxv1alpha1.Konflux{}
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: CRName}, updatedOwner)).To(Succeed())
+		updatedOwner.Spec.CertManager.ExistingClusterIssuer = "platform-ca"
+		Expect(k8sClient.Update(ctx, updatedOwner)).To(Succeed())
+
+		reconcileKonflux()
+		assertTLSIssuer(konfluxv1alpha1.TLSIssuerConfiguration{
+			Mode:                  konfluxv1alpha1.TLSIssuerModeExistingCluster,
+			ExistingClusterIssuer: "platform-ca",
 		})
 	})
 })

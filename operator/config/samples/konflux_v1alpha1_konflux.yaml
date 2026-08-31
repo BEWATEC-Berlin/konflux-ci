@@ -112,9 +112,12 @@ spec:
           - summary: "Welcome to Konflux-CI! This development and testing environment has been deployed with default insecure passwords!"
             type: danger
   certManager:
-    # CreateClusterIssuer controls whether cluster issuer resources are created
-    # Defaults to true if not specified
+    # CreateClusterIssuer controls whether cluster issuer resources are created.
+    # Defaults to true if not specified. Set it false to use namespace-local TLS issuers.
     createClusterIssuer: true
+    # Optional when createClusterIssuer is false: use this administrator-managed
+    # ClusterIssuer instead of namespace-local issuers.
+    # existingClusterIssuer: platform-ca
   internalRegistry:
     # Enabled controls whether internal registry resources are deployed
     # Defaults to false if not specified

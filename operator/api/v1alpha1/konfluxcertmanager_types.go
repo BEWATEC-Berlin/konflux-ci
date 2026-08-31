@@ -23,13 +23,56 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+// TLSIssuerMode selects the source used to issue Konflux component TLS certificates.
+type TLSIssuerMode string
+
+const (
+	// TLSIssuerModeManagedCluster preserves the upstream ClusterIssuer behavior.
+	TLSIssuerModeManagedCluster TLSIssuerMode = "managed-cluster"
+	// TLSIssuerModeNamespaceLocal creates and uses a namespaced self-signed Issuer.
+	TLSIssuerModeNamespaceLocal TLSIssuerMode = "namespace-local"
+	// TLSIssuerModeExistingCluster uses an administrator-managed ClusterIssuer.
+	TLSIssuerModeExistingCluster TLSIssuerMode = "existing-cluster"
+)
+
+// TLSIssuerConfiguration is the resolved TLS issuer strategy passed to component CRs.
+type TLSIssuerConfiguration struct {
+	// Mode selects the TLS issuer strategy.
+	// +kubebuilder:validation:Enum=managed-cluster;namespace-local;existing-cluster
+	Mode TLSIssuerMode `json:"mode"`
+	// ExistingClusterIssuer is the administrator-managed ClusterIssuer name.
+	// It is used only when Mode is existing-cluster.
+	// +optional
+	ExistingClusterIssuer string `json:"existingClusterIssuer,omitempty"`
+}
+
+// ResolveTLSIssuerConfiguration returns the safe TLS strategy for a Konflux installation.
+// When Konflux must not create ClusterIssuers, an explicit existing issuer is preferred;
+// otherwise components bootstrap independent namespace-local self-signed issuers.
+func ResolveTLSIssuerConfiguration(createClusterIssuer *bool, existingClusterIssuer string) TLSIssuerConfiguration {
+	if createClusterIssuer == nil || *createClusterIssuer {
+		return TLSIssuerConfiguration{Mode: TLSIssuerModeManagedCluster}
+	}
+	if existingClusterIssuer != "" {
+		return TLSIssuerConfiguration{
+			Mode:                  TLSIssuerModeExistingCluster,
+			ExistingClusterIssuer: existingClusterIssuer,
+		}
+	}
+	return TLSIssuerConfiguration{Mode: TLSIssuerModeNamespaceLocal}
+}
+
 // KonfluxCertManagerSpec defines the desired state of KonfluxCertManager.
 type KonfluxCertManagerSpec struct {
 	// CreateClusterIssuer controls whether cluster issuer resources are created.
 	// Defaults to true if not specified.
-	// The cluster-Issuer will be used for generating certificates for the Konflux components
+	// The cluster-Issuer will be used for generating certificates for the Konflux components.
 	// +optional
 	CreateClusterIssuer *bool `json:"createClusterIssuer,omitempty"`
+	// ExistingClusterIssuer selects an administrator-managed issuer when Konflux does not create one.
+	// An empty value with CreateClusterIssuer=false selects namespace-local self-signed issuers.
+	// +optional
+	ExistingClusterIssuer string `json:"existingClusterIssuer,omitempty"`
 }
 
 // KonfluxCertManagerStatus defines the observed state of KonfluxCertManager.

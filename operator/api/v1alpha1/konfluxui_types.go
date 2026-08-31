@@ -107,6 +107,9 @@ type KonfluxUISpec struct {
 	// Dex defines customizations for the dex deployment.
 	// +optional
 	Dex *DexDeploymentSpec `json:"dex,omitempty"`
+	// TLSIssuer is resolved by the Konflux root CR for component TLS certificates.
+	// +optional
+	TLSIssuer *TLSIssuerConfiguration `json:"tlsIssuer,omitempty"`
 }
 
 // IngressStatus defines the observed state of the Ingress configuration.

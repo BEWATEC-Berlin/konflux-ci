@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -34,6 +35,7 @@ import (
 	"github.com/konflux-ci/konflux-ci/operator/internal/constant"
 	"github.com/konflux-ci/konflux-ci/operator/internal/predicate"
 	"github.com/konflux-ci/konflux-ci/operator/pkg/manifests"
+	"github.com/konflux-ci/konflux-ci/operator/pkg/tlsissuer"
 	"github.com/konflux-ci/konflux-ci/operator/pkg/tracking"
 )
 
@@ -72,7 +74,7 @@ type KonfluxInternalRegistryReconciler struct {
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;patch;delete
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;patch;delete
-// +kubebuilder:rbac:groups=cert-manager.io,resources=certificates,verbs=get;list;watch;create;patch;delete
+// +kubebuilder:rbac:groups=cert-manager.io,resources=certificates;issuers,verbs=get;list;watch;create;patch;delete
 // +kubebuilder:rbac:groups=trust.cert-manager.io,resources=bundles,verbs=get;list;watch;create;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -103,7 +105,7 @@ func (r *KonfluxInternalRegistryReconciler) Reconcile(ctx context.Context, req c
 	})
 
 	// Apply manifests (if CR exists, it's enabled)
-	if err := r.applyManifests(ctx, tc); err != nil {
+	if err := r.applyManifests(ctx, tc, registry); err != nil {
 		return errHandler.HandleApplyError(ctx, err)
 	}
 
@@ -132,7 +134,7 @@ func (r *KonfluxInternalRegistryReconciler) Reconcile(ctx context.Context, req c
 
 // applyManifests loads and applies all embedded manifests to the cluster using the tracking client.
 // Manifests are parsed once and cached; deep copies are used during reconciliation.
-func (r *KonfluxInternalRegistryReconciler) applyManifests(ctx context.Context, tc *tracking.Client) error {
+func (r *KonfluxInternalRegistryReconciler) applyManifests(ctx context.Context, tc *tracking.Client, registry *konfluxv1alpha1.KonfluxInternalRegistry) error {
 	log := logf.FromContext(ctx)
 
 	objects, err := r.ObjectStore.GetForComponent(manifests.Registry)
@@ -141,6 +143,10 @@ func (r *KonfluxInternalRegistryReconciler) applyManifests(ctx context.Context, 
 	}
 
 	for _, obj := range objects {
+		if certificate, ok := obj.(*certmanagerv1.Certificate); ok && certificate.Name == "registry-cert" {
+			tlsissuer.ConfigureCertificate(certificate, registry.Spec.TLSIssuer, "registry-selfsigned-issuer")
+		}
+
 		// Apply with ownership - automatically sets labels, owner reference, and tracks
 		if err := tc.ApplyOwned(ctx, obj); err != nil {
 			// Only skip if it's specifically a "CRD not installed" error for trust-manager (Bundle).

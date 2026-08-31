@@ -36,6 +36,9 @@ type KonfluxNamespaceListerSpec struct {
 	// NamespaceLister defines customizations for the namespace-lister deployment.
 	// +optional
 	NamespaceLister *NamespaceListerDeploymentSpec `json:"namespaceLister,omitempty"`
+	// TLSIssuer is resolved by the Konflux root CR for the serving certificate.
+	// +optional
+	TLSIssuer *TLSIssuerConfiguration `json:"tlsIssuer,omitempty"`
 }
 
 // KonfluxNamespaceListerStatus defines the observed state of KonfluxNamespaceLister.

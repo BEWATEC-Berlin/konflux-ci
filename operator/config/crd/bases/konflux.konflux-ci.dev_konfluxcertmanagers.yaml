@@ -45,8 +45,13 @@ spec:
                 description: |-
                   CreateClusterIssuer controls whether cluster issuer resources are created.
                   Defaults to true if not specified.
-                  The cluster-Issuer will be used for generating certificates for the Konflux components
+                  The cluster-Issuer will be used for generating certificates for the Konflux components.
                 type: boolean
+              existingClusterIssuer:
+                description: |-
+                  ExistingClusterIssuer selects an administrator-managed issuer when Konflux does not create one.
+                  An empty value with CreateClusterIssuer=false selects namespace-local self-signed issuers.
+                type: string
             type: object
           status:
             description: KonfluxCertManagerStatus defines the observed state of KonfluxCertManager.

@@ -328,6 +328,11 @@ spec:
                       CreateClusterIssuer controls whether cluster issuer resources are created.
                       Defaults to true if not specified.
                     type: boolean
+                  existingClusterIssuer:
+                    description: |-
+                      ExistingClusterIssuer selects an administrator-managed issuer when Konflux does not create one.
+                      An empty value with CreateClusterIssuer=false selects namespace-local self-signed issuers.
+                    type: string
                 type: object
               defaultTenant:
                 description: |-
@@ -1158,6 +1163,25 @@ spec:
                             format: int32
                             minimum: 1
                             type: integer
+                        type: object
+                      tlsIssuer:
+                        description: TLSIssuer is resolved by the Konflux root CR
+                          for the serving certificate.
+                        properties:
+                          existingClusterIssuer:
+                            description: |-
+                              ExistingClusterIssuer is the administrator-managed ClusterIssuer name.
+                              It is used only when Mode is existing-cluster.
+                            type: string
+                          mode:
+                            description: Mode selects the TLS issuer strategy.
+                            enum:
+                            - managed-cluster
+                            - namespace-local
+                            - existing-cluster
+                            type: string
+                        required:
+                        - mode
                         type: object
                     type: object
                 type: object
@@ -2378,6 +2402,25 @@ spec:
                             format: int32
                             minimum: 1
                             type: integer
+                        type: object
+                      tlsIssuer:
+                        description: TLSIssuer is resolved by the Konflux root CR
+                          for component TLS certificates.
+                        properties:
+                          existingClusterIssuer:
+                            description: |-
+                              ExistingClusterIssuer is the administrator-managed ClusterIssuer name.
+                              It is used only when Mode is existing-cluster.
+                            type: string
+                          mode:
+                            description: Mode selects the TLS issuer strategy.
+                            enum:
+                            - managed-cluster
+                            - namespace-local
+                            - existing-cluster
+                            type: string
+                        required:
+                        - mode
                         type: object
                     type: object
                 type: object

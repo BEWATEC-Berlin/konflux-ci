@@ -112,6 +112,14 @@ spec:
         name: storage
 ---
 apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: registry-selfsigned-issuer
+  namespace: kind-registry
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: registry-cert

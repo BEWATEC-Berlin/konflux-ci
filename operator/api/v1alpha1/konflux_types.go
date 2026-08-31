@@ -143,6 +143,10 @@ type CertManagerConfig struct {
 	// Defaults to true if not specified.
 	// +optional
 	CreateClusterIssuer *bool `json:"createClusterIssuer,omitempty"`
+	// ExistingClusterIssuer selects an administrator-managed issuer when Konflux does not create one.
+	// An empty value with CreateClusterIssuer=false selects namespace-local self-signed issuers.
+	// +optional
+	ExistingClusterIssuer string `json:"existingClusterIssuer,omitempty"`
 }
 
 // InternalRegistryConfig defines the configuration for the internal registry component.

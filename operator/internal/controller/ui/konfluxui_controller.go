@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/url"
 
+	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -53,6 +54,7 @@ import (
 	"github.com/konflux-ci/konflux-ci/operator/pkg/manifests"
 	"github.com/konflux-ci/konflux-ci/operator/pkg/oauth2proxy"
 	"github.com/konflux-ci/konflux-ci/operator/pkg/segment"
+	"github.com/konflux-ci/konflux-ci/operator/pkg/tlsissuer"
 	"github.com/konflux-ci/konflux-ci/operator/pkg/tracking"
 )
 
@@ -143,7 +145,7 @@ type KonfluxUIReconciler struct {
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=console.openshift.io,resources=consolelinks,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;list;watch;patch
-// +kubebuilder:rbac:groups=cert-manager.io,resources=certificates,verbs=get;list;watch;create;patch
+// +kubebuilder:rbac:groups=cert-manager.io,resources=certificates;issuers,verbs=get;list;watch;create;patch
 // +kubebuilder:rbac:groups=config.openshift.io,resources=ingresses,verbs=get
 // +kubebuilder:rbac:groups=dex.coreos.com,resources=*,verbs=*
 // +kubebuilder:rbac:groups=core,resources=users;groups,verbs=impersonate
@@ -305,6 +307,10 @@ func (r *KonfluxUIReconciler) applyManifests(ctx context.Context, tc *tracking.C
 		// Apply customizations for services
 		if service, ok := obj.(*corev1.Service); ok {
 			applyUIServiceCustomizations(service, ui)
+		}
+
+		if certificate, ok := obj.(*certmanagerv1.Certificate); ok && certificate.Name == "ui-ca" {
+			tlsissuer.ConfigureCertificate(certificate, ui.Spec.TLSIssuer, "ui-selfsigned-issuer")
 		}
 
 		if err := tc.ApplyOwned(ctx, obj); err != nil {
