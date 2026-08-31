@@ -1,0 +1,87 @@
+name: Build BEWATEC Konflux operator
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/locked-down-tls-issuers
+    paths:
+      - .github/workflows/build-forked-operator.yaml
+      - operator/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: forked-operator-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/bewatec-berlin/konflux-ci-operator
+
+jobs:
+  test:
+    name: Test operator
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: operator
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: operator/go.mod
+          cache-dependency-path: operator/go.sum
+
+      - name: Run operator tests
+        run: make test
+
+  publish:
+    name: Publish immutable image
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish operator
+        id: build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: operator
+          file: operator/Containerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.IMAGE }}:sha-${{ github.sha }}
+          build-args: |
+            OPERATOR_VERSION=git-${{ github.sha }}
+            GIT_COMMIT=${{ github.sha }}
+          provenance: mode=max
+          sbom: true
+
+      - name: Report immutable image
+        env:
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          echo "## Forked operator image" >> "$GITHUB_STEP_SUMMARY"
+          printf '`%s@%s`\n' "$IMAGE" "$IMAGE_DIGEST" >> "$GITHUB_STEP_SUMMARY"
