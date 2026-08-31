@@ -1900,6 +1900,12 @@ spec:
                               When nil (unset), defaults to true on OpenShift, false otherwise.
                             nullable: true
                             type: boolean
+                          gatewayTerminatedTLS:
+                            description: |-
+                              GatewayTerminatedTLS enables the internal plaintext listener on port 8080 for
+                              a trusted Gateway that terminates TLS before forwarding to the proxy Service.
+                              The default is false, preserving the TLS-only proxy listener.
+                            type: boolean
                           host:
                             description: |-
                               Host is the hostname used as the endpoint for configuring oauth2-proxy, dex, and related components.

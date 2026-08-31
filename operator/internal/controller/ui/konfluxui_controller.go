@@ -22,6 +22,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/url"
+	"strings"
 
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -74,6 +75,11 @@ const (
 
 	// Service names
 	proxyServiceName = "proxy"
+
+	// Proxy ConfigMap constants
+	proxyNginxConfigKey                = "nginx.conf"
+	proxyTLSListenDirective            = "listen 9443 ssl;"
+	proxyGatewayTerminatedTLSDirective = "listen 8080;\n            listen 9443 ssl;"
 
 	// Container names
 	nginxContainerName       = "nginx"
@@ -309,6 +315,12 @@ func (r *KonfluxUIReconciler) applyManifests(ctx context.Context, tc *tracking.C
 			applyUIServiceCustomizations(service, ui)
 		}
 
+		if configMap, ok := obj.(*corev1.ConfigMap); ok {
+			if err := applyUIConfigMapCustomizations(configMap, ui); err != nil {
+				return fmt.Errorf("failed to apply customizations to ConfigMap %s: %w", configMap.Name, err)
+			}
+		}
+
 		if certificate, ok := obj.(*certmanagerv1.Certificate); ok && certificate.Name == "ui-ca" {
 			tlsissuer.ConfigureCertificate(certificate, ui.Spec.TLSIssuer, "ui-selfsigned-issuer")
 		}
@@ -367,6 +379,30 @@ func applyUIServiceCustomizations(service *corev1.Service, ui *konfluxv1alpha1.K
 			}
 		}
 	}
+}
+
+// applyUIConfigMapCustomizations enables the proxy's internal HTTP listener only
+// when a trusted Gateway terminates TLS before forwarding to the proxy Service.
+func applyUIConfigMapCustomizations(configMap *corev1.ConfigMap, ui *konfluxv1alpha1.KonfluxUI) error {
+	if !ui.Spec.GetIngress().GatewayTerminatedTLS {
+		return nil
+	}
+
+	nginxConfig, found := configMap.Data[proxyNginxConfigKey]
+	if !found {
+		return nil
+	}
+	if !strings.Contains(nginxConfig, proxyTLSListenDirective) {
+		return fmt.Errorf("expected TLS listener directive %q", proxyTLSListenDirective)
+	}
+
+	configMap.Data[proxyNginxConfigKey] = strings.Replace(
+		nginxConfig,
+		proxyTLSListenDirective,
+		proxyGatewayTerminatedTLSDirective,
+		1,
+	)
+	return nil
 }
 
 // buildProxyOverlay builds the pod overlay for the proxy deployment.

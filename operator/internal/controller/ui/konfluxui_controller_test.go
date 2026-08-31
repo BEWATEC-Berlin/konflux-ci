@@ -1605,6 +1605,37 @@ var _ = Describe("KonfluxUI Controller", func() {
 			Expect(secrets[0].OwnerReferences[0].Kind).To(Equal("KonfluxUI"))
 		})
 	})
+
+	Context("Gateway-terminated TLS proxy listener", func() {
+		newProxyConfigMap := func() *corev1.ConfigMap {
+			return &corev1.ConfigMap{
+				Data: map[string]string{
+					proxyNginxConfigKey: "server {\n    listen 9443 ssl;\n}",
+				},
+			}
+		}
+
+		It("keeps the proxy TLS-only by default", func() {
+			configMap := newProxyConfigMap()
+
+			Expect(applyUIConfigMapCustomizations(configMap, &konfluxv1alpha1.KonfluxUI{})).To(Succeed())
+			Expect(configMap.Data[proxyNginxConfigKey]).To(ContainSubstring(proxyTLSListenDirective))
+			Expect(configMap.Data[proxyNginxConfigKey]).NotTo(ContainSubstring("listen 8080;"))
+		})
+
+		It("enables the internal plaintext listener only when requested", func() {
+			configMap := newProxyConfigMap()
+			ui := &konfluxv1alpha1.KonfluxUI{
+				Spec: konfluxv1alpha1.KonfluxUISpec{
+					Ingress: &konfluxv1alpha1.IngressSpec{GatewayTerminatedTLS: true},
+				},
+			}
+
+			Expect(applyUIConfigMapCustomizations(configMap, ui)).To(Succeed())
+			Expect(configMap.Data[proxyNginxConfigKey]).To(ContainSubstring("listen 8080;"))
+			Expect(configMap.Data[proxyNginxConfigKey]).To(ContainSubstring(proxyTLSListenDirective))
+		})
+	})
 })
 
 // mockDiscoveryClient implements clusterinfo.DiscoveryClient for testing.

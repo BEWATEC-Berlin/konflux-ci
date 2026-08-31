@@ -64,6 +64,11 @@ type IngressSpec struct {
 	// This is useful for accessing Konflux UI from outside the cluster without an Ingress controller.
 	// +optional
 	NodePortService *NodePortServiceSpec `json:"nodePortService,omitempty"`
+	// GatewayTerminatedTLS enables the internal plaintext listener on port 8080 for
+	// a trusted Gateway that terminates TLS before forwarding to the proxy Service.
+	// The default is false, preserving the TLS-only proxy listener.
+	// +optional
+	GatewayTerminatedTLS bool `json:"gatewayTerminatedTLS,omitempty"`
 }
 
 // ProxyDeploymentSpec defines customizations for the proxy deployment.

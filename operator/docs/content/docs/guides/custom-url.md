@@ -53,6 +53,26 @@ service in the `konflux-ui` namespace on port **`web-tls`** (port 9443). The
 proxy service terminates TLS using a certificate signed by the `ui-ca` CA
 (managed by cert-manager).
 
+### Gateway-Terminated TLS
+
+For a trusted Gateway that terminates public TLS and forwards HTTP to the
+in-cluster proxy, set `gatewayTerminatedTLS: true`. This opt-in adds an internal
+plaintext listener on port `8080`; the existing `proxy` Service port `8888`
+targets that listener. Keep `ingress.enabled: false` and route the Gateway only
+to port `8888`. Do not enable this option for direct, NodePort, or untrusted
+network access: those paths must continue to use the TLS listener on port
+`9443`.
+
+```yaml
+spec:
+  ui:
+    spec:
+      ingress:
+        enabled: false
+        host: konflux.example.com
+        gatewayTerminatedTLS: true
+```
+
 ### Kubernetes Ingress
 
 On plain Kubernetes, create an Ingress resource with your ingress controller. The

@@ -19,6 +19,9 @@ spec:
       nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
       nginx.ingress.kubernetes.io/proxy-body-size: "10m"
     tlsSecretName: "konflux-ui-tls"
+    # Enable only when a trusted Gateway terminates public TLS and forwards to
+    # the proxy Service port 8888 over the cluster network.
+    # gatewayTerminatedTLS: true
 
   # Proxy deployment configuration
   proxy:
