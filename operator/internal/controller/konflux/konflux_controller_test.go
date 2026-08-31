@@ -179,19 +179,24 @@ var _ = Describe("Konflux Controller", func() {
 			Name: internalregistry.CRName,
 		}
 
-		AfterEach(func() {
-			// Cleanup Konflux CR
+		cleanupResources := func() {
 			resource := &konfluxv1alpha1.Konflux{}
 			if err := k8sClient.Get(ctx, typeNamespacedName, resource); err == nil {
 				Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+			} else {
+				Expect(errors.IsNotFound(err)).To(BeTrue())
 			}
 
-			// Cleanup InternalRegistry CR if it exists
 			registry := &konfluxv1alpha1.KonfluxInternalRegistry{}
 			if err := k8sClient.Get(ctx, registryTypeNamespacedName, registry); err == nil {
 				Expect(k8sClient.Delete(ctx, registry)).To(Succeed())
+			} else {
+				Expect(errors.IsNotFound(err)).To(BeTrue())
 			}
-		})
+		}
+
+		BeforeEach(cleanupResources)
+		AfterEach(cleanupResources)
 
 		It("should not create InternalRegistry CR when internalRegistry is omitted", func() {
 			By("creating Konflux CR without internalRegistry config")
