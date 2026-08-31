@@ -20,9 +20,7 @@ package testutil
 import (
 	"context"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -118,9 +116,7 @@ func SetupTestEnv(basePath string) *TestEnv {
 			filepath.Join(basePath, "test", "crds", "prometheus"),
 			filepath.Join(basePath, "test", "crds", "enterprise-contract"),
 			filepath.Join(basePath, "test", "crds", "release"),
-			filepath.Join(GetGoModuleDir("github.com/openshift/api"), "config", "v1", "zz_generated.crd-manifests"),
-			filepath.Join(GetGoModuleDir("github.com/openshift/api"), "console", "v1", "zz_generated.crd-manifests"),
-			filepath.Join(GetGoModuleDir("github.com/openshift/api"), "security", "v1", "zz_generated.crd-manifests"),
+			filepath.Join(basePath, "test", "crds", "openshift"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}
@@ -173,17 +169,6 @@ func GetFirstFoundEnvTestBinaryDir(basePath string) string {
 		}
 	}
 	return ""
-}
-
-// GetGoModuleDir returns the directory path of a Go module in the module cache.
-func GetGoModuleDir(modulePath string) string {
-	cmd := exec.Command("go", "list", "-m", "-f", "{{.Dir}}", modulePath) //nolint:gosec // modulePath is developer-provided at compile time
-	output, err := cmd.Output()
-	if err != nil {
-		logf.Log.Error(err, "Failed to get Go module directory", "module", modulePath)
-		return ""
-	}
-	return strings.TrimSpace(string(output))
 }
 
 // GetTestObjectStore returns a shared ObjectStore for non-Ginkgo tests.
