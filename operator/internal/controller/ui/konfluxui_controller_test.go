@@ -23,6 +23,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -1634,6 +1635,26 @@ var _ = Describe("KonfluxUI Controller", func() {
 			Expect(applyUIConfigMapCustomizations(configMap, ui)).To(Succeed())
 			Expect(configMap.Data[proxyNginxConfigKey]).To(ContainSubstring("listen 8080;"))
 			Expect(configMap.Data[proxyNginxConfigKey]).To(ContainSubstring(proxyTLSListenDirective))
+		})
+
+		It("rolls proxy pods when enabling the internal plaintext listener", func() {
+			deployment := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: proxyDeploymentName}}
+			ui := &konfluxv1alpha1.KonfluxUI{
+				Spec: konfluxv1alpha1.KonfluxUISpec{
+					Ingress: &konfluxv1alpha1.IngressSpec{GatewayTerminatedTLS: true},
+				},
+			}
+
+			applyProxyGatewayTerminatedTLSRollout(deployment, ui)
+			Expect(deployment.Spec.Template.Annotations).To(HaveKeyWithValue(proxyGatewayTerminatedTLSAnnotation, "true"))
+		})
+
+		It("removes the rollout annotation when returning to TLS-only", func() {
+			deployment := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: proxyDeploymentName}}
+			deployment.Spec.Template.Annotations = map[string]string{proxyGatewayTerminatedTLSAnnotation: "true"}
+
+			applyProxyGatewayTerminatedTLSRollout(deployment, &konfluxv1alpha1.KonfluxUI{})
+			Expect(deployment.Spec.Template.Annotations).NotTo(HaveKey(proxyGatewayTerminatedTLSAnnotation))
 		})
 	})
 })

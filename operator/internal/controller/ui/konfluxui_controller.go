@@ -80,6 +80,9 @@ const (
 	proxyNginxConfigKey                = "nginx.conf"
 	proxyTLSListenDirective            = "listen 9443 ssl;"
 	proxyGatewayTerminatedTLSDirective = "listen 8080;\n            listen 9443 ssl;"
+	// proxyGatewayTerminatedTLSAnnotation changes the pod template whenever the
+	// rendered nginx listener mode changes, so nginx loads the updated ConfigMap.
+	proxyGatewayTerminatedTLSAnnotation = "konflux.konflux-ci.dev/gateway-terminated-tls"
 
 	// Container names
 	nginxContainerName       = "nginx"
@@ -346,6 +349,7 @@ func applyUIDeploymentCustomizations(deployment *appsv1.Deployment, ui *konfluxv
 		if err := buildProxyOverlay(ui.Spec.Proxy, segmentSecretName, oauth2ProxyOpts...).ApplyToDeployment(deployment); err != nil {
 			return err
 		}
+		applyProxyGatewayTerminatedTLSRollout(deployment, ui)
 	case dexDeploymentName:
 		dexSpec := ui.Spec.GetDex()
 		deployment.Spec.Replicas = &dexSpec.Replicas
@@ -354,6 +358,21 @@ func applyUIDeploymentCustomizations(deployment *appsv1.Deployment, ui *konfluxv
 		}
 	}
 	return nil
+}
+
+// applyProxyGatewayTerminatedTLSRollout updates the proxy pod template when the
+// trusted Gateway listener mode changes. ConfigMap volumes are updated in place,
+// but nginx does not reload them automatically.
+func applyProxyGatewayTerminatedTLSRollout(deployment *appsv1.Deployment, ui *konfluxv1alpha1.KonfluxUI) {
+	if ui.Spec.GetIngress().GatewayTerminatedTLS {
+		if deployment.Spec.Template.Annotations == nil {
+			deployment.Spec.Template.Annotations = map[string]string{}
+		}
+		deployment.Spec.Template.Annotations[proxyGatewayTerminatedTLSAnnotation] = "true"
+		return
+	}
+
+	delete(deployment.Spec.Template.Annotations, proxyGatewayTerminatedTLSAnnotation)
 }
 
 // applyUIServiceCustomizations applies user-defined customizations to UI services.
