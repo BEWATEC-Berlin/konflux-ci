@@ -22,6 +22,7 @@ import (
 	"time"
 
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	certmanagermeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	configv1 "github.com/openshift/api/config/v1"
@@ -1404,6 +1405,37 @@ var _ = Describe("KonfluxUI Controller", func() {
 				cert := &certmanagerv1.Certificate{}
 				g.Expect(k8sClient.Get(ctx, certNN, cert)).To(Succeed())
 				g.Expect(cert.Labels).To(HaveKey(constant.KonfluxOwnerLabel))
+			}).WithTimeout(testutil.EventuallyTimeout).WithPolling(testutil.EventuallyPolling).Should(Succeed())
+		})
+
+		It("applies the configured issuer to the UI root reference", func(ctx context.Context) {
+			startManager(nil)
+
+			ui := &konfluxv1alpha1.KonfluxUI{
+				ObjectMeta: metav1.ObjectMeta{Name: CRName},
+				Spec: konfluxv1alpha1.KonfluxUISpec{
+					TLSIssuer: &konfluxv1alpha1.TLSIssuerConfiguration{
+						Mode:                  konfluxv1alpha1.TLSIssuerModeExistingCluster,
+						ExistingClusterIssuer: "cc-selfsigned-ca",
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, ui)).To(Succeed())
+			DeferCleanup(testutil.DeleteAndWait, k8sClient, ui)
+
+			By("waiting for the configured issuer on both UI certificates")
+			Eventually(func(g Gomega) {
+				for _, name := range []string{"ui-ca", clusterRootCertificateName} {
+					certificate := &certmanagerv1.Certificate{}
+					g.Expect(k8sClient.Get(ctx, types.NamespacedName{
+						Name: name, Namespace: uiNamespace,
+					}, certificate)).To(Succeed())
+					g.Expect(certificate.Spec.IssuerRef).To(Equal(certmanagermeta.IssuerReference{
+						Group: "cert-manager.io",
+						Kind:  "ClusterIssuer",
+						Name:  "cc-selfsigned-ca",
+					}))
+				}
 			}).WithTimeout(testutil.EventuallyTimeout).WithPolling(testutil.EventuallyPolling).Should(Succeed())
 		})
 

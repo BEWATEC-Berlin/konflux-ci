@@ -6,6 +6,7 @@ on:
     branches:
       - fix/locked-down-tls-issuers
       - fix/konflux-kite-ui-proxy
+      - fix/konflux-tls-issuer-ref
     tags:
       - v*-cc.*
     paths:

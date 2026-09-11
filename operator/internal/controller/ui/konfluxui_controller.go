@@ -86,6 +86,7 @@ const (
 	proxyCaddyfileKey                   = "Caddyfile"
 	proxyGatewayTerminatedTLSBlock      = "\n:8080 {\n\timport ui-routes\n}\n"
 	proxyGatewayTerminatedTLSAnnotation = "konflux.konflux-ci.dev/gateway-terminated-tls"
+	clusterRootCertificateName          = "cluster-root-ref"
 
 	// ServiceAccount names
 	serviceAccountName = "dex"
@@ -365,8 +366,15 @@ func (r *KonfluxUIReconciler) applyManifests(ctx context.Context, tc *tracking.C
 			applyUIServiceAccountCustomizations(serviceAccount, openShiftLoginEnabled, endpoint)
 		}
 
-		if certificate, ok := obj.(*certmanagerv1.Certificate); ok && certificate.Name == "ui-ca" {
-			tlsissuer.ConfigureCertificate(certificate, ui.Spec.TLSIssuer, "ui-selfsigned-issuer")
+		if certificate, ok := obj.(*certmanagerv1.Certificate); ok {
+			switch certificate.Name {
+			case "ui-ca", clusterRootCertificateName:
+				// Both certificates must follow the configured issuer strategy. The
+				// cluster-root-ref certificate is mounted by the proxy as the CA
+				// bundle for namespace-lister TLS; leaving its upstream
+				// ClusterIssuer reference intact breaks locked-down installations.
+				tlsissuer.ConfigureCertificate(certificate, ui.Spec.TLSIssuer, "ui-selfsigned-issuer")
+			}
 		}
 
 		if err := tc.ApplyOwned(ctx, obj); err != nil {
