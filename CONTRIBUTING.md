@@ -152,7 +152,11 @@ Helm-rendered **cert-manager** and **trust-manager** manifests under
 updates alongside the scheduled update workflow. Upstream-derived envtest CRDs
 (e.g., enterprise-contract, release) are extracted from
 `operator/pkg/manifests/` by `rebuild-upstream-manifests.sh` into
-`operator/test/crds/`; CI also verifies these stay in sync.
+`operator/test/crds/`; CI also verifies these stay in sync. OpenShift
+envtest CRDs under `operator/test/crds/openshift/` are extracted from the
+pinned `github.com/openshift/api` module by
+`.github/scripts/update-openshift-test-crds.sh`; CI verifies these stay in
+sync when `operator/go.mod` changes.
 
 When **MintMaker** or **Renovate** opens a PR that only bumps digests or chart
 versions, a **companion PR** may be opened automatically
@@ -181,7 +185,7 @@ Maintainers can add the `skip-image-verify` label and re-run the manifest
 companion workflow to bypass image verification.
 
 **Operator E2E Tests** does not run when labels alone change (only on new
-commits, reopen, merge queue, or maintainer `/allow` on fork PRs). After you add
+commits, reopen, merge queue, or maintainer `/allow <commit-sha>` on fork PRs). After you add
 `force-run-e2e`, start CI manually—for example re-run **Operator E2E Tests** from
 the PR Checks or Actions UI, or push a new commit to the PR branch.
 
@@ -203,6 +207,21 @@ Workflow `.github/workflows/operator-test-e2e.yaml` runs both suites when
 operator-related changes are detected: first integration (`go test .`), then E2E
 (env set from secrets, then the same `go test` command).
 
+Workflow `.github/workflows/operator-olm-kind-smoke.yaml` exercises a live OLM
+install path when `operator/**` or the smoke script/workflow changes: it builds a
+dedicated Kind cluster, installs OLM, runs `operator-sdk run bundle` from
+`.github/scripts/operator-olm-kind-smoke.sh`, and asserts the CSV reaches
+`Succeeded` and the manager pod becomes Ready without a required
+`metrics-server-cert` mount. The install namespace defaults to
+`konflux-operator-olm-smoke` (not `olm.suggested-namespace`) so bundle metadata
+bugs that break preflight's suffixed install namespace are caught. Static bundle
+checks run in **operator-verify-generated-files** via
+`.github/scripts/operator-verify-olm-bundle.sh` (metrics-server-cert wiring).
+
+`KIND_VERSION` and `KUBECTL_VERSION` in both OLM smoke and operator E2E
+workflows are Renovate-tracked (see `renovate.json` custom managers for
+`kubernetes-sigs/kind` and `kubernetes/kubernetes`).
+
 ## OpenShift CI Periodic Tests
 
 In addition to GitHub Actions, the repository has periodic E2E tests running on
@@ -218,8 +237,9 @@ ARM64 integration tests run on GitHub-hosted ARM runners and validate that:
 - The operator builds correctly for ARM64 architecture
 - All dependencies and services work on ARM64
 - Integration test suite passes on ARM64
+- OLM bundle install smoke passes on ARM64 (`operator-olm-kind-smoke`)
 
-The ARM64 workflow uses architecture-specific binaries:
+The ARM64 workflows use architecture-specific binaries:
 - kind: `kind-linux-arm64`
 - kubectl: `bin/linux/arm64/kubectl`
 

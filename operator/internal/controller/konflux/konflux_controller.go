@@ -250,7 +250,7 @@ func (r *KonfluxReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// Apply the KonfluxInternalRegistry CR (only if enabled)
 	if konflux.Spec.IsInternalRegistryEnabled() {
-		if err := r.applyKonfluxInternalRegistry(ctx, tc); err != nil {
+		if err := r.applyKonfluxInternalRegistry(ctx, tc, konflux); err != nil {
 			return errHandler.HandleWithReason(ctx, err, condition.ReasonApplyFailed, "apply KonfluxInternalRegistry")
 		}
 	}
@@ -558,6 +558,19 @@ func (r *KonfluxReconciler) applyKonfluxReleaseService(ctx context.Context, tc *
 	return tc.ApplyOwned(ctx, releaseService)
 }
 
+// tlsIssuerConfiguration returns nil for the upstream default, preserving the child CR's
+// legacy shape. A configured cert-manager strategy is propagated to every TLS consumer.
+func tlsIssuerConfiguration(owner *konfluxv1alpha1.Konflux) *konfluxv1alpha1.TLSIssuerConfiguration {
+	if owner.Spec.CertManager == nil {
+		return nil
+	}
+	configuration := konfluxv1alpha1.ResolveTLSIssuerConfiguration(
+		owner.Spec.CertManager.CreateClusterIssuer,
+		owner.Spec.CertManager.ExistingClusterIssuer,
+	)
+	return &configuration
+}
+
 // applyKonfluxUI creates or updates the KonfluxUI CR.
 func (r *KonfluxReconciler) applyKonfluxUI(ctx context.Context, tc *tracking.Client, owner *konfluxv1alpha1.Konflux) error {
 	log := logf.FromContext(ctx)
@@ -566,6 +579,7 @@ func (r *KonfluxReconciler) applyKonfluxUI(ctx context.Context, tc *tracking.Cli
 		spec.KonfluxUIConfigSpec = *owner.Spec.KonfluxUI.Spec
 	}
 	spec.ComponentMetrics = common.ForwardedComponentMetrics(owner)
+	spec.TLSIssuer = tlsIssuerConfiguration(owner)
 
 	ui := &konfluxv1alpha1.KonfluxUI{
 		TypeMeta: metav1.TypeMeta{
@@ -637,6 +651,7 @@ func (r *KonfluxReconciler) applyKonfluxNamespaceLister(ctx context.Context, tc 
 	if owner.Spec.NamespaceLister != nil && owner.Spec.NamespaceLister.Spec != nil {
 		spec = *owner.Spec.NamespaceLister.Spec
 	}
+	spec.TLSIssuer = tlsIssuerConfiguration(owner)
 
 	konfluxNamespaceLister := &konfluxv1alpha1.KonfluxNamespaceLister{
 		TypeMeta: metav1.TypeMeta{
@@ -728,6 +743,7 @@ func (r *KonfluxReconciler) applyKonfluxCertManager(ctx context.Context, tc *tra
 	var spec konfluxv1alpha1.KonfluxCertManagerSpec
 	if owner.Spec.CertManager != nil {
 		spec.CreateClusterIssuer = owner.Spec.CertManager.CreateClusterIssuer
+		spec.ExistingClusterIssuer = owner.Spec.CertManager.ExistingClusterIssuer
 	}
 
 	certManager := &konfluxv1alpha1.KonfluxCertManager{
@@ -747,7 +763,7 @@ func (r *KonfluxReconciler) applyKonfluxCertManager(ctx context.Context, tc *tra
 
 // applyKonfluxInternalRegistry creates or updates the KonfluxInternalRegistry CR.
 // The caller is responsible for checking if internal registry is enabled.
-func (r *KonfluxReconciler) applyKonfluxInternalRegistry(ctx context.Context, tc *tracking.Client) error {
+func (r *KonfluxReconciler) applyKonfluxInternalRegistry(ctx context.Context, tc *tracking.Client, owner *konfluxv1alpha1.Konflux) error {
 	log := logf.FromContext(ctx)
 
 	registry := &konfluxv1alpha1.KonfluxInternalRegistry{
@@ -757,6 +773,9 @@ func (r *KonfluxReconciler) applyKonfluxInternalRegistry(ctx context.Context, tc
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: internalregistry.CRName,
+		},
+		Spec: konfluxv1alpha1.KonfluxInternalRegistrySpec{
+			TLSIssuer: tlsIssuerConfiguration(owner),
 		},
 	}
 

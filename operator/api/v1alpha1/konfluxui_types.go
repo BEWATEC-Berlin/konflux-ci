@@ -82,6 +82,11 @@ type IngressSpec struct {
 	// This is useful for accessing Konflux UI from outside the cluster without an Ingress controller.
 	// +optional
 	NodePortService *NodePortServiceSpec `json:"nodePortService,omitempty"`
+	// GatewayTerminatedTLS enables the internal plaintext listener on port 8080 for
+	// a trusted Gateway that terminates TLS before forwarding to the proxy Service.
+	// The default is false, preserving the TLS-only proxy listener.
+	// +optional
+	GatewayTerminatedTLS bool `json:"gatewayTerminatedTLS,omitempty"`
 }
 
 // ProxyDeploymentSpec defines customizations for the proxy deployment.
@@ -96,10 +101,24 @@ type ProxyDeploymentSpec struct {
 	// OAuth2Proxy defines customizations for the oauth2-proxy container.
 	// +optional
 	OAuth2Proxy *ContainerSpec `json:"oauth2Proxy,omitempty"`
-	// Endpoints configures optional backend services that the proxy routes to.
-	// Each endpoint can be independently enabled and customized.
+	// TektonResults configures the Tekton Results API backend for the UI proxy.
+	// Unlike endpoints below, Results is a core platform backend: it is enabled by
+	// default (DNS discovery at proxy init) and is not gated by an enabled flag.
+	// +optional
+	TektonResults *TektonResultsSpec `json:"tektonResults,omitempty"`
+	// Endpoints configures optional plugin backends that the proxy routes to.
+	// Each endpoint must be explicitly enabled.
 	// +optional
 	Endpoints *ProxyEndpointsSpec `json:"endpoints,omitempty"`
+}
+
+// TektonResultsSpec configures the Tekton Results proxy route.
+type TektonResultsSpec struct {
+	// Hostname overrides DNS discovery for the Results API service.
+	// When tektonResults is present with an empty hostname, the override is
+	// cleared so DNS discovery is used again.
+	// +optional
+	Hostname string `json:"hostname,omitempty"`
 }
 
 // ProxyEndpointsSpec configures optional backend endpoints proxied by the UI reverse proxy.
@@ -267,6 +286,9 @@ type KonfluxUISpec struct {
 	// Set by the Konflux reconciler from spec.componentMetrics on the Konflux CR.
 	// +optional
 	ComponentMetrics *ComponentMetricsConfig `json:"componentMetrics,omitempty"`
+	// TLSIssuer is resolved by the Konflux root CR for component TLS certificates.
+	// +optional
+	TLSIssuer *TLSIssuerConfiguration `json:"tlsIssuer,omitempty"`
 }
 
 // IngressStatus defines the observed state of the Ingress configuration.

@@ -8,6 +8,9 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: konflux-cert-manager
 spec:
-  # CreateClusterIssuer controls whether cluster issuer resources are created
-  # Defaults to true if not specified
+  # CreateClusterIssuer controls whether cluster issuer resources are created.
+  # Defaults to true if not specified. Set it false to use namespace-local TLS issuers.
   createClusterIssuer: true
+  # Optional when createClusterIssuer is false: use this administrator-managed
+  # ClusterIssuer instead of namespace-local issuers.
+  # existingClusterIssuer: platform-ca

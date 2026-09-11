@@ -111,6 +111,9 @@ spec:
           successThreshold: 1
           timeoutSeconds: 1
         ports:
+        - containerPort: 8080
+          name: web
+          protocol: TCP
         - containerPort: 9443
           name: web-tls
           protocol: TCP
@@ -275,6 +278,10 @@ spec:
     - IPv4
   ipFamilyPolicy: SingleStack
   ports:
+    - name: web
+      port: 8888
+      protocol: TCP
+      targetPort: web
     - name: web-tls
       port: 9443
       protocol: TCP

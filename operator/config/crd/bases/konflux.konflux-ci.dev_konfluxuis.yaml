@@ -489,6 +489,12 @@ spec:
                     minLength: 1
                     pattern: ^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?(:[0-9]{1,5})?$
                     type: string
+                  gatewayTerminatedTLS:
+                    description: |-
+                      GatewayTerminatedTLS enables the internal plaintext listener on port 8080 for
+                      a trusted Gateway that terminates TLS before forwarding to the proxy Service.
+                      The default is false, preserving the TLS-only proxy listener.
+                    type: boolean
                   hostname:
                     description: |-
                       Hostname is a short DNS label composed with the cluster ingress domain on OpenShift
@@ -530,8 +536,8 @@ spec:
                 properties:
                   endpoints:
                     description: |-
-                      Endpoints configures optional backend services that the proxy routes to.
-                      Each endpoint can be independently enabled and customized.
+                      Endpoints configures optional plugin backends that the proxy routes to.
+                      Each endpoint must be explicitly enabled.
                     properties:
                       kite:
                         description: |-
@@ -1045,6 +1051,19 @@ spec:
                             type: object
                         type: object
                     type: object
+                  tektonResults:
+                    description: |-
+                      TektonResults configures the Tekton Results API backend for the UI proxy.
+                      Unlike endpoints below, Results is a core platform backend: it is enabled by
+                      default (DNS discovery at proxy init) and is not gated by an enabled flag.
+                    properties:
+                      hostname:
+                        description: |-
+                          Hostname overrides DNS discovery for the Results API service.
+                          When tektonResults is present with an empty hostname, the override is
+                          cleared so DNS discovery is used again.
+                        type: string
+                    type: object
                 type: object
               runtimeConfig:
                 description: |-
@@ -1086,6 +1105,25 @@ spec:
                         pattern: ^(0(\.\d+)?|1(\.0+)?)$
                         type: string
                     type: object
+                type: object
+              tlsIssuer:
+                description: TLSIssuer is resolved by the Konflux root CR for component
+                  TLS certificates.
+                properties:
+                  existingClusterIssuer:
+                    description: |-
+                      ExistingClusterIssuer is the administrator-managed ClusterIssuer name.
+                      It is used only when Mode is existing-cluster.
+                    type: string
+                  mode:
+                    description: Mode selects the TLS issuer strategy.
+                    enum:
+                    - managed-cluster
+                    - namespace-local
+                    - existing-cluster
+                    type: string
+                required:
+                - mode
                 type: object
             type: object
           status:

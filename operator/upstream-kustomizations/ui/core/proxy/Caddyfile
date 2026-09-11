@@ -2,7 +2,7 @@
 	auto_https off
 	admin off
 	# Enable HTTP middleware metrics (scraped via :2112 /metrics).
-	# Do not add per_host — Host labels are unbounded on this catch-all :9443 site.
+	# Do not add per_host — Host labels are unbounded on the catch-all UI sites.
 	metrics
 	order inject_cached_vars before reverse_proxy
 	file_watcher {
@@ -23,14 +23,7 @@
 	metrics /metrics
 }
 
-:9443 {
-	tls {
-		get_certificate file {
-			cert /mnt/serving-cert/tls.crt
-			key /mnt/serving-cert/tls.key
-		}
-	}
-
+(ui-routes) {
 	# Strip any client-supplied impersonation and proxy-auth headers to
 	# prevent spoofing. This runs at the server level, before any
 	# handle/route blocks.
@@ -152,4 +145,14 @@
 		try_files {path} /index.html
 		file_server
 	}
+}
+
+:9443 {
+	tls {
+		get_certificate file {
+			cert /mnt/serving-cert/tls.crt
+			key /mnt/serving-cert/tls.key
+		}
+	}
+	import ui-routes
 }

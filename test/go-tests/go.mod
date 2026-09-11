@@ -10,11 +10,11 @@ require (
 	github.com/docker/cli v29.7.2+incompatible
 	github.com/gofri/go-github-ratelimit/v2 v2.0.2
 	github.com/google/go-containerregistry v0.22.0
-	github.com/google/go-github/v90 v90.0.0
+	github.com/google/go-github/v91 v91.0.0
 	github.com/h2non/gock v1.2.0
 	github.com/konflux-ci/application-api v0.0.0-20260727123715-2999a91451c6
 	github.com/konflux-ci/build-service v0.0.0-20240611083846-2dee6cfe6fe4
-	github.com/konflux-ci/image-controller v0.0.0-20260826075901-1d688638af10
+	github.com/konflux-ci/image-controller v0.0.0-20260902123452-65b644b9b875
 	github.com/konflux-ci/integration-service v0.0.0-20260820151237-7dd7fe87a3ea
 	github.com/konflux-ci/konflux-ci/operator v0.0.0
 	github.com/konflux-ci/operator-toolkit v0.0.0-20260312101100-d4e398191a68
@@ -24,9 +24,9 @@ require (
 	github.com/onsi/gomega v1.43.0
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/openshift-pipelines/pipelines-as-code v0.48.0
-	github.com/openshift/api v0.0.0-20260728120005-8ba0b25b0f29
-	github.com/openshift/client-go v0.0.0-20260728123811-92b24dd0dd1f
-	github.com/openshift/library-go v0.0.0-20260730085458-26e4f3728f73
+	github.com/openshift/api v0.0.0-20260805215214-cfb63858e9d7
+	github.com/openshift/client-go v0.0.0-20260806041845-b74fb348f1e7
+	github.com/openshift/library-go v0.0.0-20260827165743-93f90ac5198f
 	github.com/redhat-appstudio/jvm-build-service v0.0.0-20250301023318-b47170d413c5
 	github.com/stretchr/testify v1.12.1
 	github.com/tektoncd/cli v0.45.0
@@ -188,7 +188,7 @@ require (
 	go.opentelemetry.io/proto/otlp v1.11.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	golang.org/x/crypto v0.55.0 // indirect
+	golang.org/x/crypto v0.56.0 // indirect
 	golang.org/x/exp v0.0.0-20260727155853-b88d891fe743 // indirect
 	golang.org/x/mod v0.39.0 // indirect
 	golang.org/x/net v0.58.0 // indirect

@@ -73,7 +73,7 @@ spec:
       containers:
       - args:
         - /etc/zot/config.json
-        image: quay.io/konflux-ci/zot@sha256:1dd5354fe899862b89f99837c1b1c7fb42990893136c723830be80ef6d9ba23d
+        image: quay.io/konflux-ci/zot@sha256:92cb058816f30d14d3b64d85f8ddd6c4c681fbf9263af04085cd520c0bc7db42
         livenessProbe:
           initialDelaySeconds: 15
           periodSeconds: 20
@@ -136,6 +136,14 @@ spec:
   subject:
     organizations:
     - konflux
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: registry-selfsigned-issuer
+  namespace: kind-registry
+spec:
+  selfSigned: {}
 ---
 apiVersion: trust.cert-manager.io/v1alpha1
 kind: Bundle
