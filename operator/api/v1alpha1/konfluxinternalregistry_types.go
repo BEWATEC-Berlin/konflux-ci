@@ -25,8 +25,9 @@ import (
 
 // KonfluxInternalRegistrySpec defines the desired state of KonfluxInternalRegistry.
 type KonfluxInternalRegistrySpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// TLSIssuer is resolved by the Konflux root CR for the registry certificate.
+	// +optional
+	TLSIssuer *TLSIssuerConfiguration `json:"tlsIssuer,omitempty"`
 }
 
 // KonfluxInternalRegistryStatus defines the observed state of KonfluxInternalRegistry.

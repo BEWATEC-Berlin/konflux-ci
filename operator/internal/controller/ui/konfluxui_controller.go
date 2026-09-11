@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strings"
 
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	consolev1 "github.com/openshift/api/console/v1"
@@ -33,6 +34,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -59,6 +61,7 @@ import (
 	"github.com/konflux-ci/konflux-ci/operator/pkg/manifests"
 	"github.com/konflux-ci/konflux-ci/operator/pkg/oauth2proxy"
 	"github.com/konflux-ci/konflux-ci/operator/pkg/segment"
+	"github.com/konflux-ci/konflux-ci/operator/pkg/tlsissuer"
 	"github.com/konflux-ci/konflux-ci/operator/pkg/tracking"
 )
 
@@ -78,6 +81,11 @@ const (
 
 	// Service names
 	proxyServiceName = "proxy"
+
+	// Proxy ConfigMap constants
+	proxyCaddyfileKey                   = "Caddyfile"
+	proxyGatewayTerminatedTLSBlock      = "\n:8080 {\n\timport ui-routes\n}\n"
+	proxyGatewayTerminatedTLSAnnotation = "konflux.konflux-ci.dev/gateway-terminated-tls"
 
 	// ServiceAccount names
 	serviceAccountName = "dex"
@@ -346,9 +354,19 @@ func (r *KonfluxUIReconciler) applyManifests(ctx context.Context, tc *tracking.C
 			applyUIServiceCustomizations(service, ui)
 		}
 
+		if configMap, ok := obj.(*corev1.ConfigMap); ok {
+			if err := applyUICaddyfileCustomizations(configMap, ui); err != nil {
+				return fmt.Errorf("failed to apply customizations to ConfigMap %s: %w", configMap.Name, err)
+			}
+		}
+
 		// Apply customizations for service accounts
 		if serviceAccount, ok := obj.(*corev1.ServiceAccount); ok {
 			applyUIServiceAccountCustomizations(serviceAccount, openShiftLoginEnabled, endpoint)
+		}
+
+		if certificate, ok := obj.(*certmanagerv1.Certificate); ok && certificate.Name == "ui-ca" {
+			tlsissuer.ConfigureCertificate(certificate, ui.Spec.TLSIssuer, "ui-selfsigned-issuer")
 		}
 
 		if err := tc.ApplyOwned(ctx, obj); err != nil {
@@ -380,6 +398,7 @@ func applyUIDeploymentCustomizations(deployment *appsv1.Deployment, ui *konfluxv
 		if err := proxyOverlay.ApplyToDeployment(deployment); err != nil {
 			return err
 		}
+		applyProxyGatewayTerminatedTLSRollout(deployment, ui)
 	case dexDeploymentName:
 		dexSpec := ui.Spec.GetDex()
 		deployment.Spec.Replicas = &dexSpec.Replicas
@@ -394,6 +413,34 @@ func applyUIDeploymentCustomizations(deployment *appsv1.Deployment, ui *konfluxv
 func applyUIServiceCustomizations(service *corev1.Service, ui *konfluxv1alpha1.KonfluxUI) {
 	if service.Name != proxyServiceName {
 		return
+	}
+
+	if ui.Spec.GetIngress().GatewayTerminatedTLS {
+		gatewayPort := corev1.ServicePort{
+			Name:       "web",
+			Port:       8888,
+			Protocol:   corev1.ProtocolTCP,
+			TargetPort: intstr.FromString("web"),
+		}
+		found := false
+		for i := range service.Spec.Ports {
+			if service.Spec.Ports[i].Name == gatewayPort.Name {
+				service.Spec.Ports[i] = gatewayPort
+				found = true
+				break
+			}
+		}
+		if !found {
+			service.Spec.Ports = append([]corev1.ServicePort{gatewayPort}, service.Spec.Ports...)
+		}
+	} else {
+		ports := service.Spec.Ports[:0]
+		for _, port := range service.Spec.Ports {
+			if port.Name != "web" {
+				ports = append(ports, port)
+			}
+		}
+		service.Spec.Ports = ports
 	}
 
 	nodePortSpec := ui.Spec.GetNodePortService()
@@ -413,6 +460,43 @@ func applyUIServiceCustomizations(service *corev1.Service, ui *konfluxv1alpha1.K
 			}
 		}
 	}
+}
+
+// applyUICaddyfileCustomizations adds the plaintext listener only when a trusted
+// Gateway is configured to terminate TLS before forwarding to the proxy Service.
+func applyUICaddyfileCustomizations(configMap *corev1.ConfigMap, ui *konfluxv1alpha1.KonfluxUI) error {
+	caddyfile, found := configMap.Data[proxyCaddyfileKey]
+	if !found {
+		return nil
+	}
+	if !strings.Contains(caddyfile, "import ui-routes") {
+		return fmt.Errorf("expected Caddyfile to import the shared ui-routes snippet")
+	}
+
+	if ui.Spec.GetIngress().GatewayTerminatedTLS {
+		if !strings.Contains(caddyfile, proxyGatewayTerminatedTLSBlock) {
+			caddyfile = strings.TrimRight(caddyfile, "\n") + proxyGatewayTerminatedTLSBlock
+		}
+	} else {
+		caddyfile = strings.Replace(caddyfile, proxyGatewayTerminatedTLSBlock, "", 1)
+	}
+	configMap.Data[proxyCaddyfileKey] = caddyfile
+	return nil
+}
+
+// applyProxyGatewayTerminatedTLSRollout updates the proxy pod template whenever
+// the listener mode changes. ConfigMap files mounted with subPath do not update
+// in place, so the annotation forces Caddy to load the new Caddyfile.
+func applyProxyGatewayTerminatedTLSRollout(deployment *appsv1.Deployment, ui *konfluxv1alpha1.KonfluxUI) {
+	if ui.Spec.GetIngress().GatewayTerminatedTLS {
+		if deployment.Spec.Template.Annotations == nil {
+			deployment.Spec.Template.Annotations = map[string]string{}
+		}
+		deployment.Spec.Template.Annotations[proxyGatewayTerminatedTLSAnnotation] = "true"
+		return
+	}
+
+	delete(deployment.Spec.Template.Annotations, proxyGatewayTerminatedTLSAnnotation)
 }
 
 func applyUIServiceAccountCustomizations(serviceAccount *corev1.ServiceAccount, openShiftLoginEnabled bool, endpoint *url.URL) {

@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/utils/ptr"
 
@@ -1585,4 +1586,87 @@ func envToMap(envVars []corev1.EnvVar) map[string]string {
 		m[e.Name] = e.Value
 	}
 	return m
+}
+
+func TestGatewayTerminatedTLSProxyCustomizations(t *testing.T) {
+	t.Run("adds the plaintext listener only when enabled", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		configMap := &corev1.ConfigMap{Data: map[string]string{
+			proxyCaddyfileKey: "(ui-routes) {}\n:9443 {\n\timport ui-routes\n}\n",
+		}}
+		enabledUI := buildUIFromSpec(konfluxv1alpha1.KonfluxUISpec{
+			KonfluxUIConfigSpec: konfluxv1alpha1.KonfluxUIConfigSpec{
+				Ingress: &konfluxv1alpha1.IngressSpec{GatewayTerminatedTLS: true},
+			},
+		})
+		disabledUI := buildUIFromSpec(konfluxv1alpha1.KonfluxUISpec{
+			KonfluxUIConfigSpec: konfluxv1alpha1.KonfluxUIConfigSpec{
+				Ingress: &konfluxv1alpha1.IngressSpec{},
+			},
+		})
+
+		g.Expect(applyUICaddyfileCustomizations(configMap, enabledUI)).To(gomega.Succeed())
+		g.Expect(configMap.Data[proxyCaddyfileKey]).To(gomega.ContainSubstring(proxyGatewayTerminatedTLSBlock))
+
+		g.Expect(applyUICaddyfileCustomizations(configMap, disabledUI)).To(gomega.Succeed())
+		g.Expect(configMap.Data[proxyCaddyfileKey]).NotTo(gomega.ContainSubstring(proxyGatewayTerminatedTLSBlock))
+	})
+
+	t.Run("exposes the plaintext service port only when enabled", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		service := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{Name: proxyServiceName},
+			Spec: corev1.ServiceSpec{Ports: []corev1.ServicePort{
+				{Name: "web-tls", Port: 9443, TargetPort: intstr.FromString("web-tls")},
+				{Name: "metrics", Port: 2112, TargetPort: intstr.FromString("metrics")},
+			}},
+		}
+		enabledUI := buildUIFromSpec(konfluxv1alpha1.KonfluxUISpec{
+			KonfluxUIConfigSpec: konfluxv1alpha1.KonfluxUIConfigSpec{
+				Ingress: &konfluxv1alpha1.IngressSpec{GatewayTerminatedTLS: true},
+			},
+		})
+		disabledUI := buildUIFromSpec(konfluxv1alpha1.KonfluxUISpec{
+			KonfluxUIConfigSpec: konfluxv1alpha1.KonfluxUIConfigSpec{
+				Ingress: &konfluxv1alpha1.IngressSpec{},
+			},
+		})
+
+		applyUIServiceCustomizations(service, enabledUI)
+		g.Expect(service.Spec.Ports).To(gomega.HaveLen(3))
+		g.Expect(service.Spec.Ports[0]).To(gomega.Equal(corev1.ServicePort{
+			Name: "web", Port: 8888, Protocol: corev1.ProtocolTCP, TargetPort: intstr.FromString("web"),
+		}))
+
+		applyUIServiceCustomizations(service, disabledUI)
+		g.Expect(service.Spec.Ports).To(gomega.HaveLen(2))
+		for _, port := range service.Spec.Ports {
+			g.Expect(port.Name).NotTo(gomega.Equal("web"))
+		}
+	})
+
+	t.Run("rolls the proxy when listener mode changes", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		deployment := &appsv1.Deployment{
+			Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{"keep": "true"}},
+			}},
+		}
+		enabledUI := buildUIFromSpec(konfluxv1alpha1.KonfluxUISpec{
+			KonfluxUIConfigSpec: konfluxv1alpha1.KonfluxUIConfigSpec{
+				Ingress: &konfluxv1alpha1.IngressSpec{GatewayTerminatedTLS: true},
+			},
+		})
+		disabledUI := buildUIFromSpec(konfluxv1alpha1.KonfluxUISpec{
+			KonfluxUIConfigSpec: konfluxv1alpha1.KonfluxUIConfigSpec{
+				Ingress: &konfluxv1alpha1.IngressSpec{},
+			},
+		})
+
+		applyProxyGatewayTerminatedTLSRollout(deployment, enabledUI)
+		g.Expect(deployment.Spec.Template.Annotations).To(gomega.HaveKeyWithValue(proxyGatewayTerminatedTLSAnnotation, "true"))
+		applyProxyGatewayTerminatedTLSRollout(deployment, disabledUI)
+		g.Expect(deployment.Spec.Template.Annotations).NotTo(gomega.HaveKey(proxyGatewayTerminatedTLSAnnotation))
+		g.Expect(deployment.Spec.Template.Annotations).To(gomega.HaveKeyWithValue("keep", "true"))
+	})
 }

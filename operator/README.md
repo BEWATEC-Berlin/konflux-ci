@@ -11,6 +11,7 @@ konflux-operator
   * [Install the CRDs](#install-the-crds)
   * [Run the Operator](#run-the-operator)
   * [Create a Konflux Custom Resource](#create-a-konflux-custom-resource)
+  * [Locked-down TLS issuer mode](#locked-down-tls-issuer-mode)
   * [Development Workflow](#development-workflow)
 - [Deploying the Operator to a Cluster](#deploying-the-operator-to-a-cluster)
   * [Build and Push Image](#build-and-push-image)
@@ -94,6 +95,25 @@ kubectl apply -f config/samples/konflux_v1alpha1_konflux.yaml
 
 # Wait for Konflux to be ready
 kubectl wait --for=condition=Ready=True konflux konflux --timeout=10m
+```
+
+## Locked-down TLS issuer mode
+
+By default, Konflux creates `self-signed-cluster-issuer` and `ca-issuer`.
+Set `spec.certManager.createClusterIssuer: false` to prevent those
+cluster-scoped resources. With no further setting, the UI, namespace-lister,
+and optional internal registry use independent namespace-local self-signed
+`Issuer` resources instead.
+
+To use a platform-managed CA instead, set
+`spec.certManager.existingClusterIssuer` to its `ClusterIssuer` name. Konflux
+references that issuer but does not create, label, update, or delete it.
+
+```yaml
+spec:
+  certManager:
+    createClusterIssuer: false
+    existingClusterIssuer: platform-ca
 ```
 
 ## Development Workflow

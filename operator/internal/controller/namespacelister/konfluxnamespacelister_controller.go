@@ -38,6 +38,7 @@ import (
 	"github.com/konflux-ci/konflux-ci/operator/internal/predicate"
 	"github.com/konflux-ci/konflux-ci/operator/pkg/customization"
 	"github.com/konflux-ci/konflux-ci/operator/pkg/manifests"
+	"github.com/konflux-ci/konflux-ci/operator/pkg/tlsissuer"
 	"github.com/konflux-ci/konflux-ci/operator/pkg/tracking"
 )
 
@@ -108,7 +109,7 @@ type KonfluxNamespaceListerReconciler struct {
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,resourceNames=namespace-lister-authorizer,verbs=bind;escalate
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,resourceNames=namespace-lister-authorizer,verbs=bind
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,verbs=get;list;watch;create;patch;delete
-// +kubebuilder:rbac:groups=cert-manager.io,resources=certificates,verbs=get;list;watch;create;patch;delete
+// +kubebuilder:rbac:groups=cert-manager.io,resources=certificates;issuers,verbs=get;list;watch;create;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -182,6 +183,10 @@ func (r *KonfluxNamespaceListerReconciler) applyManifests(ctx context.Context, t
 			if err := applyNamespaceListerCustomizations(deployment, owner.Spec); err != nil {
 				return fmt.Errorf("failed to apply customizations to deployment %s: %w", deployment.Name, err)
 			}
+		}
+
+		if certificate, ok := obj.(*certmanagerv1.Certificate); ok && certificate.Name == "namespace-lister" {
+			tlsissuer.ConfigureCertificate(certificate, owner.Spec.TLSIssuer, "namespace-lister-selfsigned-issuer")
 		}
 
 		// Apply with ownership using the tracking client

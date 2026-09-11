@@ -162,33 +162,32 @@ apiVersion: v1
 data:
   Caddyfile: "{\n\tauto_https off\n\tadmin off\n\t# Enable HTTP middleware metrics
     (scraped via :2112 /metrics).\n\t# Do not add per_host — Host labels are unbounded
-    on this catch-all :9443 site.\n\tmetrics\n\torder inject_cached_vars before reverse_proxy\n\tfile_watcher
+    on the catch-all UI sites.\n\tmetrics\n\torder inject_cached_vars before reverse_proxy\n\tfile_watcher
     {\n\t\tcache kube_token /var/run/secrets/konflux-ci.dev/serviceaccount/token\n\t\tcache
     backend_token /var/run/secrets/konflux-ci.dev/backend/token\n\t\tcache watson_auth
     /mnt/watson-config/API_KEY {\n\t\t\tdefault \"\"\n\t\t}\n\t\twatch /var/run/secrets/kubernetes.io/serviceaccount\n\t\twatch
     /mnt/cluster-ca\n\t\twatch /mnt/service-ca\n\t\twatch /mnt/serving-cert\n\t}\n}\n\n#
     TODO: protect metrics with kube-rbac-proxy sidecar (https://github.com/openshift/kube-rbac-proxy)\n:2112
-    {\n\tmetrics /metrics\n}\n\n:9443 {\n\ttls {\n\t\tget_certificate file {\n\t\t\tcert
-    /mnt/serving-cert/tls.crt\n\t\t\tkey /mnt/serving-cert/tls.key\n\t\t}\n\t}\n\n\t#
-    Strip any client-supplied impersonation and proxy-auth headers to\n\t# prevent
-    spoofing. This runs at the server level, before any\n\t# handle/route blocks.\n\trequest_header
-    -Impersonate-User\n\trequest_header -Impersonate-Group\n\trequest_header -Impersonate-Uid\n\trequest_header
-    -Impersonate-Extra-*\n\trequest_header -X-User\n\trequest_header -X-Group\n\n\t#
-    Health endpoint for liveness/readiness probes\n\thandle /health {\n\t\trespond
-    200\n\t}\n\n\t# Segment bridge files\n\thandle /segment/* {\n\t\troot * /opt/app-root/src\n\t\theader
-    Content-Type text/plain\n\t\tfile_server\n\t}\n\n\t# OAuth2 proxy - browser-facing
-    auth UI/callback\n\thandle /oauth2/* {\n\t\treverse_proxy 127.0.0.1:6000\n\t}\n\n\t#
-    Namespace lister (GET only on exact paths)\n\t# The namespace-lister performs
-    in-memory RBAC authorization: it checks\n\t# RoleBindings for the user AND their
-    groups to decide which namespaces\n\t# to return. Without group headers, a user
-    only sees namespaces where\n\t# they are bound individually — group-based bindings
-    are invisible.\n\t@nsListGet {\n\t\tmethod GET\n\t\tpath /api/k8s/api/v1/namespaces
-    /api/k8s/api/v1/namespaces/\n\t}\n\thandle @nsListGet {\n\t\troute {\n\t\t\tforward_auth
-    127.0.0.1:6000 {\n\t\t\t\turi /oauth2/auth\n\t\t\t\tcopy_headers X-Auth-Request-Email
-    X-Auth-Request-Groups\n\t\t\t}\n\t\t\timpersonate {\n\t\t\t\ttarget_user X-User\n\t\t\t\ttarget_group
-    X-Group\n\t\t\t}\n\t\t\trewrite * /api/v1/namespaces\n\t\t\treverse_proxy https://namespace-lister.namespace-lister.svc.cluster.local:8080
-    {\n\t\t\t\theader_down -X-Correlation-ID\n\t\t\t\ttransport http {\n\t\t\t\t\tread_timeout
-    30m\n\t\t\t\t\twrite_timeout 30m\n\t\t\t\t\ttls_trust_pool file /mnt/cluster-ca/ca-bundle.crt\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n\n\t#
+    {\n\tmetrics /metrics\n}\n\n(ui-routes) {\n\t# Strip any client-supplied impersonation
+    and proxy-auth headers to\n\t# prevent spoofing. This runs at the server level,
+    before any\n\t# handle/route blocks.\n\trequest_header -Impersonate-User\n\trequest_header
+    -Impersonate-Group\n\trequest_header -Impersonate-Uid\n\trequest_header -Impersonate-Extra-*\n\trequest_header
+    -X-User\n\trequest_header -X-Group\n\n\t# Health endpoint for liveness/readiness
+    probes\n\thandle /health {\n\t\trespond 200\n\t}\n\n\t# Segment bridge files\n\thandle
+    /segment/* {\n\t\troot * /opt/app-root/src\n\t\theader Content-Type text/plain\n\t\tfile_server\n\t}\n\n\t#
+    OAuth2 proxy - browser-facing auth UI/callback\n\thandle /oauth2/* {\n\t\treverse_proxy
+    127.0.0.1:6000\n\t}\n\n\t# Namespace lister (GET only on exact paths)\n\t# The
+    namespace-lister performs in-memory RBAC authorization: it checks\n\t# RoleBindings
+    for the user AND their groups to decide which namespaces\n\t# to return. Without
+    group headers, a user only sees namespaces where\n\t# they are bound individually
+    — group-based bindings are invisible.\n\t@nsListGet {\n\t\tmethod GET\n\t\tpath
+    /api/k8s/api/v1/namespaces /api/k8s/api/v1/namespaces/\n\t}\n\thandle @nsListGet
+    {\n\t\troute {\n\t\t\tforward_auth 127.0.0.1:6000 {\n\t\t\t\turi /oauth2/auth\n\t\t\t\tcopy_headers
+    X-Auth-Request-Email X-Auth-Request-Groups\n\t\t\t}\n\t\t\timpersonate {\n\t\t\t\ttarget_user
+    X-User\n\t\t\t\ttarget_group X-Group\n\t\t\t}\n\t\t\trewrite * /api/v1/namespaces\n\t\t\treverse_proxy
+    https://namespace-lister.namespace-lister.svc.cluster.local:8080 {\n\t\t\t\theader_down
+    -X-Correlation-ID\n\t\t\t\ttransport http {\n\t\t\t\t\tread_timeout 30m\n\t\t\t\t\twrite_timeout
+    30m\n\t\t\t\t\ttls_trust_pool file /mnt/cluster-ca/ca-bundle.crt\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n\n\t#
     Backend snippets (tekton-results, kubearchive, etc.) loaded from init-generated
     configs.\n\t# NOTE: Imported snippets MUST use paths more specific than /api/k8s/
     to avoid\n\t# shadowing the Kube API catch-all handler below. Caddy evaluates
@@ -210,10 +209,12 @@ data:
     {\n\t\t\theader_up X-Forwarded-Port \"9443\"\n\t\t\ttransport http {\n\t\t\t\ttls_trust_pool
     file /mnt/serving-cert/ca.crt\n\t\t\t}\n\t\t}\n\t}\n\n\t# Static SPA (catch-all,
     must be last)\n\thandle {\n\t\troot * /opt/app-root/src/static-content\n\t\ttry_files
-    {path} /index.html\n\t\tfile_server\n\t}\n}\n"
+    {path} /index.html\n\t\tfile_server\n\t}\n}\n\n:9443 {\n\ttls {\n\t\tget_certificate
+    file {\n\t\t\tcert /mnt/serving-cert/tls.crt\n\t\t\tkey /mnt/serving-cert/tls.key\n\t\t}\n\t}\n\timport
+    ui-routes\n}\n"
 kind: ConfigMap
 metadata:
-  name: proxy-caddyfile-45hm8d8b52
+  name: proxy-caddyfile-fcgdgf64df
   namespace: konflux-ui
 ---
 apiVersion: v1
@@ -409,6 +410,10 @@ spec:
   - IPv4
   ipFamilyPolicy: SingleStack
   ports:
+  - name: web
+    port: 8888
+    protocol: TCP
+    targetPort: web
   - name: web-tls
     port: 9443
     protocol: TCP
@@ -575,6 +580,9 @@ spec:
           timeoutSeconds: 1
         name: reverse-proxy
         ports:
+        - containerPort: 8080
+          name: web
+          protocol: TCP
         - containerPort: 9443
           name: web-tls
           protocol: TCP
@@ -748,7 +756,7 @@ spec:
           items:
           - key: Caddyfile
             path: Caddyfile
-          name: proxy-caddyfile-45hm8d8b52
+          name: proxy-caddyfile-fcgdgf64df
         name: proxy-caddyfile
       - configMap:
           defaultMode: 420

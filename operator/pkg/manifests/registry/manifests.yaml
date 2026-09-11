@@ -137,6 +137,14 @@ spec:
     organizations:
     - konflux
 ---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: registry-selfsigned-issuer
+  namespace: kind-registry
+spec:
+  selfSigned: {}
+---
 apiVersion: trust.cert-manager.io/v1alpha1
 kind: Bundle
 metadata:

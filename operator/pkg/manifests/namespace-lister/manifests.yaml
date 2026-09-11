@@ -157,6 +157,14 @@ spec:
     name: konflux-issuer
   secretName: namespace-lister-tls
 ---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: namespace-lister-selfsigned-issuer
+  namespace: namespace-lister
+spec:
+  selfSigned: {}
+---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

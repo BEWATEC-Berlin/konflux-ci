@@ -36,7 +36,6 @@ type KonfluxNamespaceListerSpec struct {
 	// NamespaceLister defines customizations for the namespace-lister deployment.
 	// +optional
 	NamespaceLister *NamespaceListerDeploymentSpec `json:"namespaceLister,omitempty"`
-
 	// CacheResyncPeriod controls how often the namespace-lister's access cache
 	// fully re-evaluates RBAC permissions as a safety net.
 	// Accepts a Go duration string (e.g. "5s", "10m", "1h").
@@ -51,6 +50,9 @@ type KonfluxNamespaceListerSpec struct {
 	// When omitted, the namespace-lister defaults to error level.
 	// +optional
 	LogLevel LogLevel `json:"logLevel,omitempty"`
+	// TLSIssuer is resolved by the Konflux root CR for the serving certificate.
+	// +optional
+	TLSIssuer *TLSIssuerConfiguration `json:"tlsIssuer,omitempty"`
 }
 
 // KonfluxNamespaceListerStatus defines the observed state of KonfluxNamespaceLister.
