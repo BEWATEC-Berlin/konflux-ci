@@ -73,6 +73,10 @@ type KonfluxImageControllerSpec struct {
 	// Set by the Konflux reconciler from spec.componentMetrics on the Konflux CR.
 	// +optional
 	ComponentMetrics *ComponentMetricsConfig `json:"componentMetrics,omitempty"`
+
+	// TLSIssuer is resolved by the Konflux root CR for the metrics certificate.
+	// +optional
+	TLSIssuer *TLSIssuerConfiguration `json:"tlsIssuer,omitempty"`
 }
 
 // KonfluxImageControllerStatus defines the observed state of KonfluxImageController.

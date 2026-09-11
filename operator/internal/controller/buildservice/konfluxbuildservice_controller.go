@@ -50,6 +50,7 @@ import (
 	"github.com/konflux-ci/konflux-ci/operator/pkg/hashedconfigmap"
 	"github.com/konflux-ci/konflux-ci/operator/pkg/kubernetes"
 	"github.com/konflux-ci/konflux-ci/operator/pkg/manifests"
+	"github.com/konflux-ci/konflux-ci/operator/pkg/tlsissuer"
 	"github.com/konflux-ci/konflux-ci/operator/pkg/tracking"
 )
 
@@ -297,6 +298,10 @@ func (r *KonfluxBuildServiceReconciler) applyManifests(ctx context.Context, tc *
 			if err := applyBuildServiceDeploymentCustomizations(deployment, owner.Spec.KonfluxBuildServiceConfigSpec, r.ClusterInfo, webhookConfigMapName); err != nil {
 				return fmt.Errorf("failed to apply customizations to deployment %s: %w", deployment.Name, err)
 			}
+		}
+
+		if certificate, ok := obj.(*certmanagerv1.Certificate); ok && certificate.Name == kubernetes.MetricsLeafCertificateName {
+			tlsissuer.ConfigureCertificate(certificate, owner.Spec.TLSIssuer, "selfsigned-issuer")
 		}
 
 		// Apply pipeline config merge logic to the build-pipeline-config ConfigMap

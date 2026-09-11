@@ -102,14 +102,15 @@ kubectl wait --for=condition=Ready=True konflux konflux --timeout=10m
 By default, Konflux creates `self-signed-cluster-issuer` and `ca-issuer`.
 Set `spec.certManager.createClusterIssuer: false` to prevent those
 cluster-scoped resources. With no further setting, the UI, namespace-lister,
-and optional internal registry use independent namespace-local self-signed
-`Issuer` resources instead.
+operand metrics certificates, and optional internal registry use independent
+namespace-local self-signed `Issuer` resources instead.
 
 To use a platform-managed CA instead, set
 `spec.certManager.existingClusterIssuer` to its `ClusterIssuer` name. Konflux
-references that issuer but does not create, label, update, or delete it. The
-UI's `cluster-root-ref` certificate follows the same setting because the proxy
-mounts its CA bundle when verifying the namespace-lister service.
+references that issuer for component TLS certificates but does not create,
+label, update, or delete it. The UI's `cluster-root-ref` certificate follows
+the same setting because the proxy mounts its CA bundle when verifying the
+namespace-lister service.
 
 ```yaml
 spec:

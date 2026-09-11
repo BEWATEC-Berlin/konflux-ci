@@ -88,7 +88,7 @@ ServiceAccount, rotated by the operator).
 | Piece | Target |
 |-------|--------|
 | Metrics server | HTTPS `:8443`, controller-runtime auth filters (no kube-rbac-proxy) |
-| Server TLS | Single Secret `metrics-server-cert` (`tls.crt`/`tls.key` + scrape trust `ca.crt`). Operands: Certificate via `ClusterIssuer/konflux-issuer`. Operator manager: namespace-local SelfSigned Issuer (`config/certmanager/`) so the Secret exists before the manager starts. **cert-manager is required** for verified scrape installs. |
+| Server TLS | Single Secret `metrics-server-cert` (`tls.crt`/`tls.key` + scrape trust `ca.crt`). Operand Certificates default to `ClusterIssuer/konflux-issuer` and follow the root `Konflux` TLS issuer strategy; the operator manager uses a namespace-local SelfSigned Issuer (`config/certmanager/`) so the Secret exists before the manager starts. **cert-manager is required** for verified scrape installs. |
 | ServiceMonitor | `scheme: https`, `port: https`, `bearerTokenSecret` → `prometheus-scrape-token` |
 | TLS verify | `tlsConfig.ca` from `metrics-server-cert` / `ca.crt` + `serverName` — **not** `insecureSkipVerify: true` |
 | Authorization | `<component>-metrics-reader` ClusterRole bound to the operator-owned `metrics-scraper` ServiceAccount in the operand namespace |
@@ -112,7 +112,7 @@ components on the **operator scrape token** model (see [Scope](#scope)).
 
 | Piece | Shipped |
 |-------|---------|
-| Metrics server | HTTPS `:8443` with auth filters. **konflux-operator**, **build-service**, **image-controller**, **release-service**, and **integration-service** use a single `metrics-server-cert` Secret (leaf + `ca.crt`) with verified scrape TLS (`tlsConfig.ca` → `metrics-server-cert`/`ca.crt`, plus `serverName`). Pods mount `tls.crt`/`tls.key` only. Operands are issued by `konflux-issuer`; the operator uses a namespace-local SelfSigned Issuer at install time. Operand controllers mount at controller-runtime’s default CertDir (`/tmp/k8s-metrics-server/serving-certs`) with no `--metrics-cert-path`. |
+| Metrics server | HTTPS `:8443` with auth filters. **konflux-operator**, **build-service**, **image-controller**, **release-service**, and **integration-service** use a single `metrics-server-cert` Secret (leaf + `ca.crt`) with verified scrape TLS (`tlsConfig.ca` → `metrics-server-cert`/`ca.crt`, plus `serverName`). Pods mount `tls.crt`/`tls.key` only. Operand certificates default to `konflux-issuer` and follow the root `Konflux` TLS issuer strategy; the operator uses a namespace-local SelfSigned Issuer at install time. Operand controllers mount at controller-runtime’s default CertDir (`/tmp/k8s-metrics-server/serving-certs`) with no `--metrics-cert-path`. |
 | ServiceMonitor | `bearerTokenSecret` → `prometheus-scrape-token` in the operand namespace |
 | Scrape Secret | **Not** in kustomize — reconciler mints a bound token via TokenRequest for the operand `metrics-scraper` SA and writes `prometheus-scrape-token`; refreshes before expiry |
 | Authorization | `<component>-metrics-reader` ClusterRole; CRB subjects bind the operator-owned `metrics-scraper` ServiceAccount in the operand namespace |
@@ -309,7 +309,7 @@ that already apply to operator scrape token components.
 
 ### 2. Operator `core/` + cert-manager
 
-- [ ] Add or extend `certmanager/` with a Certificate that issues `metrics-server-cert` via `konflux-issuer` (operands) or a namespace-local SelfSigned Issuer (operator manager only)
+- [ ] Add or extend `certmanager/` with a Certificate that issues `metrics-server-cert` via `konflux-issuer` (operands) or the configured root `Konflux` TLS issuer strategy; provide a namespace-local SelfSigned Issuer for the namespace-local mode
 - [ ] Patch Deployment: mount leaf cert volume (`tls.crt`/`tls.key` from `metrics-server-cert`), `--metrics-cert-path=…` (or default CertDir)
 - [ ] Add kustomize `replacements` for ServiceMonitor `serverName` (see operator deploy kustomization)
 - [ ] Keep `core/` patches that delete upstream monitoring resources

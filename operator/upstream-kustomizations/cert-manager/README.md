@@ -106,13 +106,17 @@ Verified metrics scrape TLS uses that Secret shape with fixed names:
 | ServiceMonitor trust | `tlsConfig.ca.secret` → `metrics-server-cert` / `ca.crt`, plus `serverName` matching the metrics Service DNS; **not** `insecureSkipVerify: true` |
 
 Scrapers trust **that endpoint’s** Secret `ca.crt`. There is no cluster-wide
-metrics trust bundle — so the operator’s SelfSigned leaf is fine for its own
-ServiceMonitor even though it does not chain to `konflux-ca`.
+metrics trust bundle — so a namespace-local SelfSigned leaf is fine for its
+own ServiceMonitor even though it does not chain to `konflux-ca`.
 
-**Operands** (build-service, image-controller, release-service): Certificate
-`issuerRef` is `ClusterIssuer/konflux-issuer`. Manifests live under
-`operator/upstream-kustomizations/<component>/certmanager/` (and the matching
-`mount-metrics-server-cert.yaml` / monitoring ServiceMonitor). Example leaf:
+**Operands** (build-service, image-controller, release-service, and
+integration-service): the default Certificate manifest uses
+`ClusterIssuer/konflux-issuer`. The root `Konflux` reconciler rewrites that
+`issuerRef` for `namespace-local` or `existing-cluster` TLS modes, using the
+component's namespace-local `selfsigned-issuer` where needed. Manifests live
+under `operator/upstream-kustomizations/<component>/certmanager/` (and the
+matching `mount-metrics-server-cert.yaml` / monitoring ServiceMonitor).
+Example default leaf:
 
 ```yaml
 apiVersion: cert-manager.io/v1
@@ -162,7 +166,8 @@ not here.
    `component-monitoring.md` (HTTPS `:8443`, `prometheus-scrape-token`, etc.).
 2. Add `certmanager/certificate.yaml` like the build-service example above
    (`konflux-issuer` → `metrics-server-cert`); wire kustomize `dnsNames`
-   replacements from the metrics Service.
+   replacements from the metrics Service. Include a namespace-local
+   `selfsigned-issuer` if the component supports locked-down TLS modes.
 3. Mount `tls.crt`/`tls.key` only (`optional: false`), at controller-runtime’s
    default CertDir or via `--metrics-cert-path`.
 4. Point the ServiceMonitor at `metrics-server-cert` / `ca.crt` with the correct
@@ -208,8 +213,8 @@ manages the bootstrap resources in this directory. When
 `spec.createClusterIssuer` is true (the default), it applies
 `konflux-bootstrap-issuer`, `konflux-ca` Certificate, and `konflux-issuer`
 ClusterIssuer. Component controllers then apply their own leaf Certificates
-(and any namespace Issuers they need, e.g. UI or webhook self-signed). Operand
-**metrics** leaves reference `konflux-issuer` directly — no per-namespace
-metrics Issuer. The operator manager metrics Issuer+Certificate are install
-manifests in `operator/config/certmanager/`, not reconciled by
-`KonfluxCertManager`.
+(and any namespace Issuers they need, e.g. UI, webhook, or operand metrics
+self-signed issuers). Operand **metrics** leaves default to `konflux-issuer`,
+but follow the root `Konflux` TLS issuer strategy. The operator manager metrics
+Issuer+Certificate are install manifests in `operator/config/certmanager/`,
+not reconciled by `KonfluxCertManager`.

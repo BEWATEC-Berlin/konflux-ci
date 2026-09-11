@@ -485,6 +485,7 @@ func (r *KonfluxReconciler) applyKonfluxBuildService(ctx context.Context, tc *tr
 		spec.KonfluxBuildServiceConfigSpec = *owner.Spec.KonfluxBuildService.Spec
 	}
 	spec.ComponentMetrics = common.ForwardedComponentMetrics(owner)
+	spec.TLSIssuer = tlsIssuerConfiguration(owner)
 
 	// Ensure PipelineConfig is always present in the SSA payload so the
 	// controller claims ownership. Combined with the atomic marker on
@@ -517,6 +518,7 @@ func (r *KonfluxReconciler) applyKonfluxIntegrationService(ctx context.Context, 
 		spec.KonfluxIntegrationServiceConfigSpec = *owner.Spec.KonfluxIntegrationService.Spec
 	}
 	spec.ComponentMetrics = common.ForwardedComponentMetrics(owner)
+	spec.TLSIssuer = tlsIssuerConfiguration(owner)
 
 	integrationService := &konfluxv1alpha1.KonfluxIntegrationService{
 		TypeMeta: metav1.TypeMeta{
@@ -542,6 +544,7 @@ func (r *KonfluxReconciler) applyKonfluxReleaseService(ctx context.Context, tc *
 		spec.KonfluxReleaseServiceConfigSpec = *owner.Spec.KonfluxReleaseService.Spec
 	}
 	spec.ComponentMetrics = common.ForwardedComponentMetrics(owner)
+	spec.TLSIssuer = tlsIssuerConfiguration(owner)
 
 	releaseService := &konfluxv1alpha1.KonfluxReleaseService{
 		TypeMeta: metav1.TypeMeta{
@@ -720,6 +723,7 @@ func (r *KonfluxReconciler) applyKonfluxImageController(ctx context.Context, tc 
 		spec.KonfluxImageControllerConfigSpec = *owner.Spec.ImageController.Spec
 	}
 	spec.ComponentMetrics = common.ForwardedComponentMetrics(owner)
+	spec.TLSIssuer = tlsIssuerConfiguration(owner)
 
 	imageController := &konfluxv1alpha1.KonfluxImageController{
 		TypeMeta: metav1.TypeMeta{

@@ -774,6 +774,25 @@ spec:
                 - configMapName
                 - key
                 type: object
+              tlsIssuer:
+                description: TLSIssuer is resolved by the Konflux root CR for the
+                  metrics certificate.
+                properties:
+                  existingClusterIssuer:
+                    description: |-
+                      ExistingClusterIssuer is the administrator-managed ClusterIssuer name.
+                      It is used only when Mode is existing-cluster.
+                    type: string
+                  mode:
+                    description: Mode selects the TLS issuer strategy.
+                    enum:
+                    - managed-cluster
+                    - namespace-local
+                    - existing-cluster
+                    type: string
+                required:
+                - mode
+                type: object
             type: object
           status:
             description: KonfluxImageControllerStatus defines the observed state of
