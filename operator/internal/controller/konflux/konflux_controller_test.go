@@ -140,6 +140,47 @@ var _ = Describe("Konflux Controller", func() {
 				g.Expect(errors.IsNotFound(err)).To(BeTrue(), "unexpected error: %v", err)
 			}).WithTimeout(testutil.EventuallyTimeout).WithPolling(testutil.EventuallyPolling).Should(Succeed())
 		})
+
+		It("forwards the configured issuer to every operand metrics consumer", func(ctx context.Context) {
+			startManager(createTestClusterInfo())
+
+			falseValue := false
+			enabled := true
+			cr := &konfluxv1alpha1.Konflux{
+				ObjectMeta: metav1.ObjectMeta{Name: CRName},
+				Spec: konfluxv1alpha1.KonfluxSpec{
+					CertManager: &konfluxv1alpha1.CertManagerConfig{
+						CreateClusterIssuer:   &falseValue,
+						ExistingClusterIssuer: "platform-ca",
+					},
+					ImageController: &konfluxv1alpha1.ImageControllerConfig{Enabled: &enabled},
+				},
+			}
+			Expect(k8sClient.Create(ctx, cr)).To(Succeed())
+			testutil.DeferCleanupParentAndChildren(k8sClient, cr, allSubCRs()...)
+
+			want := &konfluxv1alpha1.TLSIssuerConfiguration{
+				Mode:                  konfluxv1alpha1.TLSIssuerModeExistingCluster,
+				ExistingClusterIssuer: "platform-ca",
+			}
+			Eventually(func(g Gomega) {
+				build := &konfluxv1alpha1.KonfluxBuildService{}
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: buildservice.CRName}, build)).To(Succeed())
+				g.Expect(build.Spec.TLSIssuer).To(Equal(want))
+
+				integration := &konfluxv1alpha1.KonfluxIntegrationService{}
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: integrationservice.CRName}, integration)).To(Succeed())
+				g.Expect(integration.Spec.TLSIssuer).To(Equal(want))
+
+				release := &konfluxv1alpha1.KonfluxReleaseService{}
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: releaseservice.CRName}, release)).To(Succeed())
+				g.Expect(release.Spec.TLSIssuer).To(Equal(want))
+
+				image := &konfluxv1alpha1.KonfluxImageController{}
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: imagecontroller.CRName}, image)).To(Succeed())
+				g.Expect(image.Spec.TLSIssuer).To(Equal(want))
+			}).WithTimeout(testutil.EventuallyTimeout).WithPolling(testutil.EventuallyPolling).Should(Succeed())
+		})
 	})
 
 	Context("Konflux Name Validation (CEL)", func() {

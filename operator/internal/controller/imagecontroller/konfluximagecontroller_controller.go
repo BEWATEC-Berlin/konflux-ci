@@ -51,6 +51,7 @@ import (
 	"github.com/konflux-ci/konflux-ci/operator/pkg/customization"
 	"github.com/konflux-ci/konflux-ci/operator/pkg/kubernetes"
 	"github.com/konflux-ci/konflux-ci/operator/pkg/manifests"
+	"github.com/konflux-ci/konflux-ci/operator/pkg/tlsissuer"
 	"github.com/konflux-ci/konflux-ci/operator/pkg/tracking"
 )
 
@@ -256,6 +257,10 @@ func (r *KonfluxImageControllerReconciler) applyManifests(ctx context.Context, t
 			if err := applyImageControllerDeploymentCustomizations(deployment, owner.Spec.KonfluxImageControllerConfigSpec); err != nil {
 				return fmt.Errorf("failed to apply customizations to deployment %s: %w", deployment.Name, err)
 			}
+		}
+
+		if certificate, ok := obj.(*certmanagerv1.Certificate); ok && certificate.Name == kubernetes.MetricsLeafCertificateName {
+			tlsissuer.ConfigureCertificate(certificate, owner.Spec.TLSIssuer, "selfsigned-issuer")
 		}
 
 		if cronJob, ok := obj.(*batchv1.CronJob); ok {

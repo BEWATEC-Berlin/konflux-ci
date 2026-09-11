@@ -84,6 +84,10 @@ type KonfluxBuildServiceSpec struct {
 	// Set by the Konflux reconciler from spec.componentMetrics on the Konflux CR.
 	// +optional
 	ComponentMetrics *ComponentMetricsConfig `json:"componentMetrics,omitempty"`
+
+	// TLSIssuer is resolved by the Konflux root CR for the metrics certificate.
+	// +optional
+	TLSIssuer *TLSIssuerConfiguration `json:"tlsIssuer,omitempty"`
 }
 
 // PipelineConfigSpec defines how the operator should build the build-pipeline-config ConfigMap.
