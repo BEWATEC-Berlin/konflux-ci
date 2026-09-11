@@ -107,7 +107,9 @@ and optional internal registry use independent namespace-local self-signed
 
 To use a platform-managed CA instead, set
 `spec.certManager.existingClusterIssuer` to its `ClusterIssuer` name. Konflux
-references that issuer but does not create, label, update, or delete it.
+references that issuer but does not create, label, update, or delete it. The
+UI's `cluster-root-ref` certificate follows the same setting because the proxy
+mounts its CA bundle when verifying the namespace-lister service.
 
 ```yaml
 spec:
@@ -271,4 +273,3 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-
