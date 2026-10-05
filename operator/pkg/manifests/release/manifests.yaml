@@ -308,6 +308,14 @@ spec:
                 items:
                   type: string
                 type: array
+              allowedServiceAccounts:
+                description: |-
+                  AllowedServiceAccounts is the list of ServiceAccount names allowed for PipelineRun execution.
+                  When non-empty, only InternalRequests specifying a ServiceAccount in this list will be allowed.
+                  When empty, any ServiceAccount is permitted.
+                items:
+                  type: string
+                type: array
               debug:
                 description: Debug sets the operator to run in debug mode. In this
                   mode, PipelineRuns and PVCs will not be removed
@@ -1458,6 +1466,12 @@ spec:
                 description: RetryInfo contains information about retry configuration
                   for this ReleasePlanAdmission
                 properties:
+                  disablingTags:
+                    description: DisablingTags is the list of tags from the ReleaseServiceConfig
+                      that disable retries on match.
+                    items:
+                      type: string
+                    type: array
                   enabled:
                     description: Enabled indicates whether retries are enabled for
                       this RPA's pipeline
@@ -3981,6 +3995,10 @@ spec:
                         managed Release PipelineRun executed as part of this attempt
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                       type: string
+                    retryDisabledReason:
+                      description: RetryDisabledReason is the reason retries were
+                        not performed for this attempt
+                      type: string
                     roleBindings:
                       description: RoleBindings defines the roleBindings for accessing
                         resources during the managed pipeline attempt
@@ -4250,8 +4268,8 @@ spec:
                           properties:
                             tags:
                               description: |-
-                                Tags is a list of values which disable retries when present in the ReleasePlanAdmission
-                                mapping data.
+                                Tags is a list of values which disable retries when present in the ReleasePlan or
+                                ReleasePlanAdmission mapping data.
                               items:
                                 type: string
                               type: array
@@ -5260,7 +5278,7 @@ spec:
               key: token
               name: release-service-github-token
               optional: true
-        image: quay.io/konflux-ci/release-service:247e44403e4c4464e09a371b4fa474ada7ddd019
+        image: quay.io/konflux-ci/release-service:2482585a4de9138b248546de5582cba330438509
         livenessProbe:
           httpGet:
             path: /healthz
