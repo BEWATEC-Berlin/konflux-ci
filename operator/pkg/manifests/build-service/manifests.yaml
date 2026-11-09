@@ -209,6 +209,14 @@ rules:
   - update
   - watch
 - apiGroups:
+  - konflux-ci.dev
+  resources:
+  - nudgeconfigs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - pipelinesascode.tekton.dev
   resources:
   - repositories
@@ -451,7 +459,7 @@ spec:
         - -webhook-config-path=/mnt/webhook-config.json
         command:
         - /manager
-        image: quay.io/konflux-ci/build-service:d9f967ffe35d99d18b09373822ae2819b50c2aa1
+        image: quay.io/konflux-ci/build-service:e6765a47100c108579438cc5f24cedde81155197
         livenessProbe:
           httpGet:
             path: /healthz
